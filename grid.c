@@ -12,6 +12,7 @@ uint16_t test_id;
 int organism_count = 0;
 int16_t free_top = -1;
 uint8_t timer = 0;
+uint32_t steps = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
@@ -20,7 +21,7 @@ uint16_t min_mat = 20;
 uint8_t food_mult = 10;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
-uint16_t lifetime = 2 * GENOME_SIZE;
+uint16_t lifetime = 1 * GENOME_SIZE / 6;
 uint8_t re_frac = 1000;
 uint8_t debug = 1;
 uint8_t base_mutate_chance = 10;
@@ -687,32 +688,10 @@ void Grid_Update()
             }
         }
     }
-    // printf("alive first: %5d", alive);
     
-    // total_mat = 0;
-    // org_mat = 0, grid_mat = 0, vol_mat = 0;
-    // for(int i = 0; i < grid_height; i++)
-    // {
-    //     for(int j = 0; j < grid_width; j++)
-    //     {
-    //         id = Grid_Get(j, i)->id;
-    //         if(population[id].volume > 0 || id == MAX_ORGANISMS)
-    //             grid_mat += grid_array[i][j].mat;
-    //     }
-    // }
-    
-    // for(int i = 1; i < MAX_ORGANISMS; i++)
-    // {
-    //     if(population[i].alive)
-    //     {
-    //         org_mat += population[i].material;
-    //         vol_mat += population[i].volume;
-    //     }
-    // }
-    // total_mat = org_mat + grid_mat;
-    
-    // printf("middle vol_mat: %5d org_mat: %5d grid_mat: %5d total_mat: %5d\n", vol_mat, org_mat, grid_mat, total_mat);
     Organism_Update();
+    
+    steps++;
     
     timer++;
     if(timer > 0)
@@ -721,31 +700,6 @@ void Grid_Update()
         
         timer = 0;
     }
-    
-    // total_mat = 0;
-    // org_mat = 0, grid_mat = 0, vol_mat = 0;
-    // for(int i = 0; i < grid_height; i++)
-    // {
-    //     for(int j = 0; j < grid_width; j++)
-    //     {
-    //         id = Grid_Get(j, i)->id;
-    //         if(population[id].volume > 0 || id == MAX_ORGANISMS)
-    //             grid_mat += grid_array[i][j].mat;
-    //     }
-    // }
-    
-    // for(int i = 1; i < MAX_ORGANISMS; i++)
-    // {
-    //     if(population[i].alive)
-    //     {
-    //         org_mat += population[i].material;
-    //         vol_mat += population[i].volume;
-    //     }
-    // }
-    // total_mat = org_mat + grid_mat;
-    
-    // printf("after  vol_mat: %5d org_mat: %5d grid_mat: %5d total_mat: %5d\n", vol_mat, org_mat, grid_mat, total_mat);
-    
 }
 
 void Grid_Signal(int16_t x, int16_t y, int8_t vx, int8_t vy, int8_t strength)
@@ -2542,7 +2496,17 @@ void Organism_Update()
             }
         }
     }
-    if(free_top >= MAX_ORGANISMS * (re_frac - 1) / re_frac) Repopulate();
+    if(free_top >= MAX_ORGANISMS * (re_frac - 1) / re_frac) 
+    {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "screenshots/material_steps:%d.png", steps);
+        Save_Screenshot(buf, SCREENSHOT_MATERIALS);
+        snprintf(buf, sizeof(buf), "screenshots/walls_steps:%d.png", steps);
+        Save_Screenshot(buf, SCREENSHOT_WALLS);
+        snprintf(buf, sizeof(buf), "screenshots/flags_steps:%d.png", steps);
+        Save_Screenshot(buf, SCREENSHOT_FLAGS);
+        Repopulate();
+    }
 }
 
 uint16_t Most_Common_Neighbor(int16_t x, int16_t y)

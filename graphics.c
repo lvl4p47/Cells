@@ -193,3 +193,81 @@ void Organism_Draw()
         }
     }
 }
+
+void Save_Screenshot(const char* filename, int mode)
+{
+    int w = grid_width;
+    int h = grid_height;
+    
+    // Создаём поверхность
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, w, h, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+    if (!surface) return;
+    
+    Uint32* pixels = (Uint32*)surface->pixels;
+    
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            Cell* cell = &grid_array[y][x];
+            int id = cell->id;
+            Uint32 color;
+            
+            switch (mode) {
+                case SCREENSHOT_WALLS:
+                {
+                    if (cell->solid)
+                    {
+                        int value = cell->mat;
+                        color = SDL_MapRGB(surface->format, 0, 0, value);
+                    }
+                    else
+                    {
+                        color = SDL_MapRGB(surface->format, 0, 0, 0);
+                    }
+                    break;
+                }
+                
+                case SCREENSHOT_FLAGS:
+                {
+                    int flag_0 = cell->flag_0;
+                    int flag_1 = cell->flag_1;
+                    int flag_2 = cell->flag_2;
+                    
+                    color = SDL_MapRGB(surface->format, flag_0, flag_1, flag_2);
+                    break;
+                }
+                
+                case SCREENSHOT_MATERIALS:
+                {
+                    if (id != 0) {
+                        int r = 0, g = 0, b = 0;
+                        
+                        if (id == MAX_ORGANISMS) {
+                            int value = cell->mat;
+                            r = value;
+                            g = 0;
+                            b = value;
+                        }
+                        else if (population[id].alive) {
+                            int material = cell->mat;
+                            r = 0;
+                            g = material;
+                            b = 0;
+                        }
+                        
+                        color = SDL_MapRGB(surface->format, r, g, b);
+                    }
+                    else {
+                        color = SDL_MapRGB(surface->format, 0, 0, 0);
+                    }
+                    break;
+                }
+            }
+            
+            pixels[y * w + x] = color;
+        }
+    }
+    
+    IMG_SavePNG(surface, filename);
+    SDL_FreeSurface(surface);
+}
+

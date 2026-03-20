@@ -15,7 +15,6 @@ void Graphics_Init();
 void Graphics_Quit();
 void Screen_Clear();
 void Screen_Draw();
-
 void Grid_Draw();
 
 #endif

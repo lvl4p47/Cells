@@ -177,6 +177,12 @@ typedef enum
     OP_COUNT
 } OpCode;
 
+typedef enum {
+    SCREENSHOT_MATERIALS,
+    SCREENSHOT_WALLS,
+    SCREENSHOT_FLAGS
+} ScreenshotMode;
+
 void Grid_Init(uint16_t w, uint16_t h);
 void Grid_Quit();
 void Grid_Reset(uint16_t value);
@@ -208,5 +214,7 @@ uint8_t Expand(int16_t x, int16_t y, int8_t strength);
 uint16_t Most_Common_Neighbor(int16_t x, int16_t y);
 void Repopulate();
 void Order_Shuffle();
+
+void Save_Screenshot(const char* filename, int mode);
 
 #endif
