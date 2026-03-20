@@ -3,7 +3,7 @@
 
 #include "utility.h"
 
-#define MAX_ORGANISMS 2000
+#define MAX_ORGANISMS 10000
 #define GENOME_SIZE 128
 
 typedef struct {
@@ -12,7 +12,7 @@ typedef struct {
     int8_t vy;
     int8_t strength;
     int8_t type;
-    uint16_t mat;
+    uint32_t mat;
     uint8_t lifetime; 
     uint16_t life_wave_str;
     
@@ -22,25 +22,42 @@ typedef struct {
 typedef struct {
     uint16_t nuc_x;
     uint16_t nuc_y;
-    uint16_t material;
+    uint32_t material;
     uint16_t min_mat;
-    uint16_t volume;
+    uint32_t volume;
     uint8_t target_vol;
     uint8_t alive;
     uint8_t multiply;
     uint16_t lifetime;
     
-    int8_t target_dx;
-    int8_t target_dy;
-    int8_t target_str;
-    int8_t pain_dx;
-    int8_t pain_dy;
-    int8_t pain_str;
+    int16_t target_dx;
+    int16_t target_dy;
+    uint16_t target_str;
+    int16_t other_dx;
+    int16_t other_dy;
+    uint16_t other_str;
+    int16_t pain_dx;
+    int16_t pain_dy;
+    uint16_t pain_str;
+    int16_t free_dx;
+    int16_t free_dy;
+    uint16_t free_dist;
+    uint16_t free_str;
+    
     uint8_t strength;
     uint8_t state;
     int8_t vx;
     int8_t vy;
     uint8_t move;
+    uint8_t take_mat;
+    
+    uint8_t flag_0;
+    uint8_t flag_1;
+    uint8_t flag_2;
+    
+    uint16_t is_flag_0;
+    uint16_t is_flag_1;
+    uint16_t is_flag_2;
     
     uint8_t genome[GENOME_SIZE];
     uint8_t gp;
@@ -52,12 +69,19 @@ typedef struct {
     int16_t max_x, max_y;
     
     uint8_t life_wave_timer;
+    uint16_t signal_timer;
+    uint8_t grow;
+    uint8_t shrink;
+    
+    uint8_t newborn;
 } Organism;
 
 extern uint16_t grid_width;
 extern uint16_t grid_height;
 extern Organism population[MAX_ORGANISMS + 1];
 extern uint16_t order[MAX_ORGANISMS];
+extern uint16_t test_id;
+extern uint8_t timer;
 
 typedef enum
 {
@@ -75,13 +99,18 @@ typedef enum
     STR_MAX,
     GOTO_0,
     SKIP,
-    CHECK_OTHER,
+    CHECK_OTHER_DX,
+    CHECK_OTHER_DY,
     CHECK_TARGET_DX,
     CHECK_TARGET_DY,
     CHECK_PAIN_DX,
     CHECK_PAIN_DY,
+    CHECK_FREE_DX,
+    CHECK_FREE_DY,
     CHECK_MAT,
     CHECK_MULT,
+    CHECK_VEL,
+    CHECK_VOL,
     MULTIPLY,
     SET_STATE_0,
     SET_STATE_1,
@@ -93,6 +122,14 @@ typedef enum
     MUTATE_NEG,
     PACIFISM_POS,
     PACIFISM_NEG,
+    TAKE_MAT_ON,
+    TAKE_MAT_OFF,
+    SET_FLAG_0,
+    SET_FLAG_1,
+    SET_FLAG_2,
+    CHECK_FLAG_0,
+    CHECK_FLAG_1,
+    CHECK_FLAG_2,
     OP_COUNT
 } OpCode;
 
@@ -108,12 +145,12 @@ void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength);
 void Grid_Add_Cooldown(int16_t x, int16_t y, int8_t cd);
 
 uint16_t Organism_Init(int16_t x, int16_t y);
-void Genome_Init(uint16_t id);
+void Genome_Init(uint16_t id, uint8_t test);
 void Genome_Hash(uint16_t id);
 void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate);
 void Mutate_Swap_Blocks(uint16_t id);
 void Best_Genome_Spread();
-void Organism_Quit(uint16_t id);
+uint8_t Organism_Quit(uint16_t id);
 uint16_t Is_Membrane(int16_t x, int16_t y);
 uint16_t Id_Count(int16_t x, int16_t y, uint16_t id);
 uint8_t Expand(int16_t x, int16_t y, int8_t strength);

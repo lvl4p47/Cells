@@ -27,14 +27,22 @@ void Events_Handle()
             
             if (e.button.button == SDL_BUTTON_RIGHT) {
                 rmb_held = 1;
-                Grid_Signal(x, y, 1, 0, -10);
+                Grid_Signal(x, y, 1, 0, 10);
             }
             if (e.button.button == SDL_BUTTON_LEFT) {
                 lmb_held = 1;
-                Grid_Signal(x, y, 1, 0, 10);
+                uint16_t id = 0;
+                id = Organism_Init(x, y);
+                if(id == 0)
+                {
+                    Organism_Quit(1);
+                    id = Organism_Init(x, y);
+                }
+                Genome_Init(id, 1);
+                test_id = id;
             }
             if (e.button.button == SDL_BUTTON_MIDDLE) {
-                Organism_Init(x, y);
+                
             }
         }
         if (e.type == SDL_MOUSEBUTTONUP) {
@@ -54,7 +62,7 @@ void Events_Handle()
 
             if (rmb_held == 1)
             {
-                Grid_Set(x, y, 0);
+                // Grid_Set(x, y, 0);
             }
             if (lmb_held == 1)
             {

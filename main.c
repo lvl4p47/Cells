@@ -12,11 +12,14 @@ int main(int argc, char* args[])
         
         Grid_Update();
 
-        Screen_Clear();
+        if(timer == 0)
+        {
+            Screen_Clear();
 
-        Screen_Draw();
+            Screen_Draw();
+        }
         
-        SDL_Delay(1);
+        SDL_Delay(0);
     }
 
     // Clean up
