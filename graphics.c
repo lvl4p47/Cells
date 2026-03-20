@@ -2,6 +2,7 @@
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
+uint8_t display_mode = 0;
 
 void Graphics_Init()
 {
@@ -42,7 +43,7 @@ void Screen_Clear()
 void Screen_Draw()
 {
     Grid_Draw();
-    Organism_Draw();
+    // Organism_Draw();
     SDL_RenderPresent(renderer);
 }
 
@@ -54,40 +55,27 @@ void Grid_Draw()
     rect.y = 0;
     rect.w = CELL_SIZE;
     rect.h = CELL_SIZE;
-    uint8_t fast = 1;
-    if(fast)
+    if(display_mode)
     {
-        for(int id1 = 0; id1 < MAX_ORGANISMS; id1++)
+        for(int id1 = 1; id1 < MAX_ORGANISMS; id1++)
         {
-            uint16_t min_x = population[id1].min_x;
-            uint16_t min_y = population[id1].min_y;
-            uint16_t max_x = population[id1].max_x;
-            uint16_t max_y = population[id1].max_y;
-                
-            for(int i = min_y; i <= max_y; i++)
+            if(population[id1].alive)
             {
-                for(int j = min_x; j <= max_x; j++)
+                int16_t min_x = population[id1].min_x;
+                int16_t min_y = population[id1].min_y;
+                int16_t max_x = population[id1].max_x;
+                int16_t max_y = population[id1].max_y;
+            
+                for(int i = min_y - 1; i <= max_y + 1; i++)
                 {
-                    int id = Grid_Get(j, i)->id;
-                    if(id == id1)
+                    for(int j = min_x - 1; j <= max_x + 1; j++)
                     {
-                        int r = 0, g = 0, b = 0;
-                    
-                        if(id == MAX_ORGANISMS)
+                        
+                        int id = Grid_Get(j, i)->id;
+                        if(id == id1)
                         {
-                            // Еда - розовый
-                            r = 255;
-                            g = 0;
-                            b = 255;
-                        }
-                        else if(Grid_Get(j, i)->lifetime == 0)
-                        {
-                            r = 0;
-                            g = 0;
-                            b = 0;
-                        }
-                        else
-                        {
+                            int r = 0, g = 0, b = 0;
+                        
                             // Обычный организм - цвет зависит от genome_hash
                             int value = population[id].genome_hash / 500;
                             int lifetime = Grid_Get(j, i)->lifetime;
@@ -101,11 +89,13 @@ void Grid_Draw()
                             r = 127 + flag_0;
                             g = 127 + flag_1;
                             b = 127 + flag_2;
+                    
+                            rect.x = mod(j, grid_width) * CELL_SIZE;
+                            rect.y = mod(i, grid_height) * CELL_SIZE;
+                            
+                            SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+                            SDL_RenderFillRect(renderer, &rect);
                         }
-                        rect.x = j * CELL_SIZE;
-                        rect.y = i * CELL_SIZE;
-                        SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-                        SDL_RenderFillRect(renderer, &rect);
                     }
                 }
             }
@@ -119,27 +109,58 @@ void Grid_Draw()
             for(int j = 0; j < grid_width; j++)
             {
                 int id = Grid_Get(j, i)->id;
+                int flag_0 = Grid_Get(j, i)->flag_0;
+                int flag_1 = Grid_Get(j, i)->flag_1;
+                int flag_2 = Grid_Get(j, i)->flag_2;
+                int solid = Grid_Get(j, i)->solid;
                 if(id != 0)
                 {
                     int r = 0, g = 0, b = 0;
                     
-                    if(id == MAX_ORGANISMS || population[id].alive == 0 || Grid_Get(j, i)->lifetime == 0)
+                    if(id == MAX_ORGANISMS)
                     {
-                        int material = Grid_Get(j, i)->mat * 10;
-                        
-                        r = material;
-                        g = 0;
-                        b = material;
+                        int value = Grid_Get(j, i)->mat;
+                        // Еда - розовый
+                        r = value;
+                        g = value;
+                        b = value;
+                        if(solid)
+                        {
+                            r = 0;
+                            g = 0;
+                            b = 255;
+                        }
                     }
-                    else
+                    else if(population[id].alive)
                     {
                         // Обычный организм - цвет зависит от genome_hash
                         int value = population[id].genome_hash / 500;
                         int lifetime = Grid_Get(j, i)->lifetime;
+                        int life_wave_str = Grid_Get(j, i)->lifetime;
+                        int flag_0 = population[id].flag_0 * 8;
+                        int flag_1 = population[id].flag_1 * 8;
+                        int flag_2 = population[id].flag_2 * 8; 
+                        // r = 0;
+                        // g = (255 - value) * lifetime / 255;
+                        // b = value * lifetime / 255;
                         r = 0;
-                        g = (255 - value) * lifetime / 255;
-                        b = value * lifetime / 255;
+                        g = lifetime;
+                        b = 0;
                     }
+            
+                    rect.x = j * CELL_SIZE;
+                    rect.y = i * CELL_SIZE;
+                    
+                    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+                    SDL_RenderFillRect(renderer, &rect);
+                }
+                if(flag_0 + flag_1 + flag_2 != 0)
+                {
+                    int r = 0, g = 0, b = 0;
+                    
+                    r = flag_0 * 1;
+                    g = flag_1 * 1;
+                    b = flag_2 * 1;
                     rect.x = j * CELL_SIZE;
                     rect.y = i * CELL_SIZE;
                     SDL_SetRenderDrawColor(renderer, r, g, b, 255);

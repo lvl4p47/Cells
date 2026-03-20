@@ -8,28 +8,38 @@ SDL_Event e;
 void Events_Handle()
 {
     
-    while (SDL_PollEvent(&e) != 0) {
+    while (SDL_PollEvent(&e) != 0) 
+    {
         
-        if (e.type == SDL_QUIT) {
+        if (e.type == SDL_QUIT) 
+        {
             quit = 1;
         }
         
-        if (e.type == SDL_KEYDOWN) {
-        
+        if (e.type == SDL_KEYDOWN) 
+        {
+            if(e.key.keysym.sym == SDLK_TAB)
+            {
+                display_mode = 1 - display_mode;
+            }
         }
         
-        if (e.type == SDL_MOUSEBUTTONDOWN) {
+        if (e.type == SDL_MOUSEBUTTONDOWN) 
+        {
             int mouseX = e.button.x;
             int mouseY = e.button.y;
             
             int x = mouseX / CELL_SIZE;
             int y = mouseY / CELL_SIZE;
             
-            if (e.button.button == SDL_BUTTON_RIGHT) {
+            if (e.button.button == SDL_BUTTON_RIGHT) 
+            {
                 rmb_held = 1;
-                Grid_Signal(x, y, 1, 0, 10);
+                // Grid_Signal(x, y, 1, 0, 10);
+                Grid_Get(x, y)->flag_0 = 25;
             }
-            if (e.button.button == SDL_BUTTON_LEFT) {
+            if (e.button.button == SDL_BUTTON_LEFT) 
+            {
                 lmb_held = 1;
                 uint16_t id = 0;
                 id = Organism_Init(x, y);
@@ -41,15 +51,18 @@ void Events_Handle()
                 Genome_Init(id, 1);
                 test_id = id;
             }
-            if (e.button.button == SDL_BUTTON_MIDDLE) {
+            if (e.button.button == SDL_BUTTON_MIDDLE) 
+            {
                 
             }
         }
         if (e.type == SDL_MOUSEBUTTONUP) {
-            if (e.button.button == SDL_BUTTON_LEFT) {
+            if (e.button.button == SDL_BUTTON_LEFT) 
+            {
                 lmb_held = 0;
             }
-            if (e.button.button == SDL_BUTTON_RIGHT) {
+            if (e.button.button == SDL_BUTTON_RIGHT) 
+            {
                 rmb_held = 0;
             }
         }

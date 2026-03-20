@@ -1,13 +1,5 @@
 #include "utility.h"
 
-int mod(int a, int t)
-{
-    int ans;
-    ans = a % t;
-	ans += ans < 0 ? t : 0;
-    return ans;
-}
-
 int min(int a, int b)
 {
     if(a < b) return a;
@@ -18,13 +10,6 @@ int max(int a, int b)
 {
     if(a > b) return a;
     return b;
-}
-
-int sign(int a)
-{
-    if(a > 0) return 1;
-    if(a < 0) return -1;
-    return 0;
 }
 
 float power(int a, int n)
@@ -47,25 +32,7 @@ float power(int a, int n)
     return ans;
 }
 
-int fast_root(int val)
-{
-    int min = 1, max = val;
-    int ans = (min + max) / 2;
-    int sqr = ans * ans;
-    int step = 0;
-    
-    while(abs(sqr - val) > 1 && step < 100)
-    {
-        if(sqr < val) min = ans;
-        if(sqr > val) max = ans;
-        
-        ans = (min + max) / 2;
-        sqr = ans * ans;
-        step++;
-    }
 
-    return ans;
-}
 
 int lg(int a, int pow)
 {

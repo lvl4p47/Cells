@@ -4,7 +4,7 @@
 #include "utility.h"
 
 #define MAX_ORGANISMS 10000
-#define GENOME_SIZE 128
+#define GENOME_SIZE 256
 
 typedef struct {
     uint16_t id;
@@ -15,6 +15,10 @@ typedef struct {
     uint32_t mat;
     uint8_t lifetime; 
     uint16_t life_wave_str;
+    uint8_t flag_0;
+    uint8_t flag_1;
+    uint8_t flag_2;
+    uint8_t solid;
     
     uint8_t  cooldown;
 } Cell;
@@ -43,6 +47,18 @@ typedef struct {
     int16_t free_dy;
     uint16_t free_dist;
     uint16_t free_str;
+    int16_t friend_dx;
+    int16_t friend_dy;
+    uint16_t friend_str;
+    int16_t flag_0_dx;
+    int16_t flag_0_dy;
+    uint16_t flag_0_str;
+    int16_t flag_1_dx;
+    int16_t flag_1_dy;
+    uint16_t flag_1_str;
+    int16_t flag_2_dx;
+    int16_t flag_2_dy;
+    uint16_t flag_2_str;
     
     uint8_t strength;
     uint8_t state;
@@ -50,6 +66,7 @@ typedef struct {
     int8_t vy;
     uint8_t move;
     uint8_t take_mat;
+    uint8_t attack;
     
     uint8_t flag_0;
     uint8_t flag_1;
@@ -62,6 +79,7 @@ typedef struct {
     uint8_t genome[GENOME_SIZE];
     uint8_t gp;
     uint32_t genome_hash;
+    uint32_t target_hash;
     uint16_t mutate_chance;
     uint32_t pacifism_treshold;
     
@@ -74,6 +92,13 @@ typedef struct {
     uint8_t shrink;
     
     uint8_t newborn;
+    
+    uint8_t sex;
+    uint16_t partner_id;
+    uint8_t child_genome[GENOME_SIZE];
+    uint8_t fertilized;
+    uint8_t has_reproduced;
+    uint8_t solidify;
 } Organism;
 
 extern uint16_t grid_width;
@@ -82,6 +107,7 @@ extern Organism population[MAX_ORGANISMS + 1];
 extern uint16_t order[MAX_ORGANISMS];
 extern uint16_t test_id;
 extern uint8_t timer;
+extern Cell **grid_array;
 
 typedef enum
 {
@@ -97,7 +123,9 @@ typedef enum
     STR_NEG,
     STR_ONE,
     STR_MAX,
-    GOTO_0,
+    GOTO_ZONE_0,
+    GOTO_ZONE_1,
+    GOTO_ZONE_2,
     SKIP,
     CHECK_OTHER_DX,
     CHECK_OTHER_DY,
@@ -107,6 +135,8 @@ typedef enum
     CHECK_PAIN_DY,
     CHECK_FREE_DX,
     CHECK_FREE_DY,
+    CHECK_FRIEND_DX,
+    CHECK_FRIEND_DY,
     CHECK_MAT,
     CHECK_MULT,
     CHECK_VEL,
@@ -124,19 +154,39 @@ typedef enum
     PACIFISM_NEG,
     TAKE_MAT_ON,
     TAKE_MAT_OFF,
+    ATTACK_ON,
+    ATTACK_OFF,
     SET_FLAG_0,
     SET_FLAG_1,
     SET_FLAG_2,
     CHECK_FLAG_0,
     CHECK_FLAG_1,
     CHECK_FLAG_2,
+    CHECK_FLAG_0_DX,
+    CHECK_FLAG_0_DY,
+    CHECK_FLAG_1_DX,
+    CHECK_FLAG_1_DY,
+    CHECK_FLAG_2_DX,
+    CHECK_FLAG_2_DY,
+    CHECK_SEX,
+    FLIP_SEX,
+    TARGET_HASH_POS,
+    TARGET_HASH_NEG,
+    TARGET_HASH_RAND,
+    SOLIDIFY,
     OP_COUNT
 } OpCode;
 
 void Grid_Init(uint16_t w, uint16_t h);
 void Grid_Quit();
 void Grid_Reset(uint16_t value);
-Cell* Grid_Get(int16_t x, int16_t y);
+
+static inline Cell* Grid_Get(int16_t x, int16_t y) {
+    uint16_t x1 = mod(x, grid_width);
+    uint16_t y1 = mod(y, grid_height);
+    return &grid_array[y1][x1];
+}
+
 void Grid_Set(int16_t x, int16_t y, uint16_t id);
 void Grid_Set_Food(uint16_t x, uint16_t y);
 void Grid_Update();
@@ -148,6 +198,7 @@ uint16_t Organism_Init(int16_t x, int16_t y);
 void Genome_Init(uint16_t id, uint8_t test);
 void Genome_Hash(uint16_t id);
 void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate);
+void Child_Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate);
 void Mutate_Swap_Blocks(uint16_t id);
 void Best_Genome_Spread();
 uint8_t Organism_Quit(uint16_t id);

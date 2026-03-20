@@ -9,6 +9,7 @@
 
 extern SDL_Window* window;
 extern SDL_Renderer* renderer;
+extern uint8_t display_mode;
 
 void Graphics_Init();
 void Graphics_Quit();
