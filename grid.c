@@ -1275,12 +1275,12 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
             id1 = Grid_Get(x + dx, y + dy)->id;
             if(id1 != id)
             {
-                counter++; 
+                return 1; 
             }
         }
     }
     
-    return counter;
+    return 0;
 }
 
 void Process_Membrane(int16_t x, int16_t y)
