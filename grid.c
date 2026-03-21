@@ -1311,6 +1311,11 @@ void Process_Membrane(int16_t x, int16_t y)
     uint16_t linear_size = max(population[id].max_x - population[id].min_x
     + population[id].max_y - population[id].min_y, 1);
     
+    int8_t vx = population[id].vx;
+    int8_t vy = population[id].vy;
+    uint8_t ax = abs(vx);
+    uint8_t ay = abs(vy);
+    
     for(int dy = -1; dy < 2; dy++)
     {
         for(int dx = -1; dx < 2; dx++)
@@ -1421,15 +1426,52 @@ void Process_Membrane(int16_t x, int16_t y)
             population[id].target_dx = dx_to_nuc;
             population[id].target_dy = dy_to_nuc;
         }
+        
         free_dist = max(abs(dx_to_nuc), abs(dy_to_nuc));
-        if((free_dist < population[id].free_dist && free > 0)
-         || (free_dist == population[id].free_dist && free > population[id].free_str))
+        
+        int16_t dot = 0;
+        int16_t vel_len_sq = vx*vx + vy*vy;
+        
+        if(vel_len_sq > 0)
         {
-            population[id].free_str = free;
-            population[id].free_dist = free_dist;
-            population[id].free_dx = dx_to_nuc;
-            population[id].free_dy = dy_to_nuc;
+            dot = dx_to_nuc * vx + dy_to_nuc * vy;
         }
+        
+        if(vel_len_sq == 0)
+        {
+            // Старая логика: выбираем ближайшую свободную клетку
+            if((free_dist < population[id].free_dist && free > 0)
+            || (free_dist == population[id].free_dist && free > population[id].free_str))
+            {
+                population[id].free_str = free;
+                population[id].free_dist = free_dist;
+                population[id].free_dx = dx_to_nuc;
+                population[id].free_dy = dy_to_nuc;
+            }
+        }
+        else
+        {
+            int16_t existing_dot = population[id].free_dx * vx + population[id].free_dy * vy;
+            
+            if(population[id].free_str == 0 || dot > existing_dot)
+            {
+                population[id].free_str = free;
+                population[id].free_dist = free_dist;
+                population[id].free_dx = dx_to_nuc;
+                population[id].free_dy = dy_to_nuc;
+            }
+            else if(dot == existing_dot && (free_dist < population[id].free_dist
+            || free_dist == population[id].free_dist && free > population[id].free_str)
+            
+            )
+            {
+                population[id].free_str = free;
+                population[id].free_dist = free_dist;
+                population[id].free_dx = dx_to_nuc;
+                population[id].free_dy = dy_to_nuc;
+            }
+        }
+        
         if(flag_0 > population[id].is_flag_0)
         {
             population[id].is_flag_0 = flag_0;
