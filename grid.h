@@ -250,6 +250,7 @@ void Mutate_Swap_Blocks(uint16_t id);
 void Best_Genome_Spread();
 uint8_t Organism_Quit(uint16_t id);
 uint16_t Is_Membrane(int16_t x, int16_t y);
+void Process_Membrane(int16_t x, int16_t y);
 uint16_t Id_Count(int16_t x, int16_t y, uint16_t id);
 uint8_t Expand(int16_t x, int16_t y, int8_t strength);
 uint16_t Most_Common_Neighbor(int16_t x, int16_t y);

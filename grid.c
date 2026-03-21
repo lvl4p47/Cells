@@ -15,7 +15,7 @@ uint8_t timer = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
-uint8_t food_mat = 100;
+uint8_t food_mat = 20;
 uint16_t min_mat = 20;
 uint8_t food_mult = 10;
 uint32_t total_mat = 0;
@@ -520,6 +520,8 @@ void Grid_Update()
                         if(i > new_max_y) new_max_y = i;
                         
                         membrane = Is_Membrane(j, i);
+                        
+                        if(membrane) Process_Membrane(j, i);
                         
                         if(membrane && population[id1].take_mat)
                         {
@@ -1262,10 +1264,31 @@ uint8_t Organism_Quit(uint16_t id)
 uint16_t Is_Membrane(int16_t x, int16_t y)
 {
     if(debug > 1) fprintf(stderr, "\nIs_Membrane");
-    uint8_t id = Grid_Get(x, y)->id;
-    uint8_t id1;
-    uint16_t x1 = mod(x, grid_width);
-    uint16_t y1 = mod(y, grid_height);
+    uint16_t id = Grid_Get(x, y)->id;
+    uint16_t id1;
+    uint16_t counter = 0;
+    
+    for(int dy = -1; dy < 2; dy++)
+    {
+        for(int dx = -1; dx < 2; dx++)
+        {
+            id1 = Grid_Get(x + dx, y + dy)->id;
+            if(id1 != id)
+            {
+                counter++; 
+            }
+        }
+    }
+    
+    return counter;
+}
+
+void Process_Membrane(int16_t x, int16_t y)
+{
+    Cell* current = Grid_Get(x, y);
+    uint16_t id = current->id;
+    
+    uint16_t id1;
     uint16_t counter = 0;
     uint16_t other = 0;
     uint16_t target = 0;
@@ -1292,11 +1315,36 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
     {
         for(int dx = -1; dx < 2; dx++)
         {
-            id1 = Grid_Get(x1 + dx, y1 + dy)->id;
+            Cell* cell = Grid_Get(x + dx, y + dy);
+            id1 = cell->id;
+            
+            if(population[id1].alive == 1
+            && id1 != id && id1 != 0 && id1 != MAX_ORGANISMS)
+            {
+                hash = population[id1].genome_hash;
+                partner_id = population[id].partner_id;
+                partner_hash = population[partner_id].target_hash;
+                
+                random_hash = rand() % max_pacifism_threshold;
+                uint32_t diff_candidate = abs(hash - population[id].target_hash);
+                uint32_t diff_existing = abs(partner_hash - population[id].target_hash);
+                
+                if (partner_id == 0) 
+                {
+                    population[id].partner_id = id1;
+                } 
+                else if(rand() % linear_size == 0)
+                {
+                    if (diff_candidate < diff_existing) 
+                    {
+                        population[id].partner_id = id1;
+                    }
+                }
+            }
+            
             if(id1 != id
-            && (Grid_Get(x1 + dx, y1 + dy)->lifetime != 0
-            && abs(population[id].genome_hash
-             - population[id1].genome_hash)
+            && (cell->lifetime != 0
+            && abs(population[id].genome_hash - population[id1].genome_hash)
              > (max_pacifism_threshold * population[id].pacifism_treshold / 64)
             || id1 == MAX_ORGANISMS
             || id1 == 0
@@ -1305,10 +1353,10 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
                 counter++;
                 if(id1 == MAX_ORGANISMS || population[id1].alive == 0) 
                 {
-                    if(Grid_Get(x1 + dx, y1 + dy)->solid)
+                    if(cell->solid)
                         target += 1;
                     else
-                        target += Grid_Get(x1 + dx, y1 + dy)->mat;
+                        target += cell->mat;
                 }
                 else if(id1 != 0)
                 {
@@ -1329,80 +1377,58 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
                 }
             }
             else if(id1 != id
-            && (Grid_Get(x1 + dx, y1 + dy)->lifetime != 0
-            && abs(population[id].genome_hash
-             - population[id1].genome_hash)
+            && (cell->lifetime != 0
+            && abs(population[id].genome_hash - population[id1].genome_hash)
              <= (max_pacifism_threshold * population[id].pacifism_treshold / 64)))
             {
                 friends += 31;   
             }
             
-            if(population[id1].alive == 1 && population[id].fertilized == 0
-            && id1 != id && id1 != 0 && id1 != MAX_ORGANISMS)
+            if(cell->flag_0)
             {
-                hash = population[id1].genome_hash;
-                partner_id = population[id].partner_id;
-                partner_hash = population[partner_id].target_hash;
-                
-                random_hash = rand() % max_pacifism_threshold;
-                uint32_t diff_candidate = abs(hash - population[id].target_hash);
-                uint32_t diff_existing = abs(partner_hash - population[id].target_hash);
-                
-                if(rand() % linear_size == 0)
-                {
-                    if (partner_id == 0) 
-                    {
-                        population[id].partner_id = id1;
-                    } 
-                    else if (diff_candidate < diff_existing) 
-                    {
-                        population[id].partner_id = id1;
-                    }
-                }
+                flag_0_str += cell->flag_0;
             }
-            
-            if(Grid_Get(x1 + dx, y1 + dy)->flag_0)
+            if(cell->flag_1)
             {
-                flag_0_str += Grid_Get(x1 + dx, y1 + dy)->flag_0;
+                flag_1_str += cell->flag_1;
             }
-            if(Grid_Get(x1 + dx, y1 + dy)->flag_1)
+            if(cell->flag_2)
             {
-                flag_1_str += Grid_Get(x1 + dx, y1 + dy)->flag_1;
-            }
-            if(Grid_Get(x1 + dx, y1 + dy)->flag_2)
-            {
-                flag_2_str += Grid_Get(x1 + dx, y1 + dy)->flag_2;
+                flag_2_str += cell->flag_2;
             }
         }
     }
-    if(counter == 0
-    && Grid_Get(x1, y1)->vx == 0
-    && Grid_Get(x1, y1)->vy == 0)
+    
+    if(counter == 0 && current->vx == 0 && current->vy == 0)
     {
-        Grid_Signal(x1, y1, 0, 0, 0);
+        Grid_Signal(x, y, 0, 0, 0);
     }
+    
     if(population[id].alive)
     {
+        int16_t dx_to_nuc = x - population[id].nuc_x;
+        int16_t dy_to_nuc = y - population[id].nuc_y;
+        
         if(other > population[id].other_str)
         {
             population[id].other_str = other;
-            population[id].other_dx = x1 - population[id].nuc_x;
-            population[id].other_dy = y1 - population[id].nuc_y;
+            population[id].other_dx = dx_to_nuc;
+            population[id].other_dy = dy_to_nuc;
         }
         if(target > population[id].target_str)
         {
             population[id].target_str = target;
-            population[id].target_dx = x1 - population[id].nuc_x;
-            population[id].target_dy = y1 - population[id].nuc_y;
+            population[id].target_dx = dx_to_nuc;
+            population[id].target_dy = dy_to_nuc;
         }
-        free_dist = max(abs(x1 - population[id].nuc_x), abs(y1 - population[id].nuc_y));
+        free_dist = max(abs(dx_to_nuc), abs(dy_to_nuc));
         if((free_dist < population[id].free_dist && free > 0)
          || (free_dist == population[id].free_dist && free > population[id].free_str))
         {
             population[id].free_str = free;
             population[id].free_dist = free_dist;
-            population[id].free_dx = x1 - population[id].nuc_x;
-            population[id].free_dy = y1 - population[id].nuc_y;
+            population[id].free_dx = dx_to_nuc;
+            population[id].free_dy = dy_to_nuc;
         }
         if(flag_0 > population[id].is_flag_0)
         {
@@ -1419,49 +1445,45 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
         if(flag_0_str > population[id].flag_0_str)
         {
             population[id].flag_0_str = flag_0_str;
-            population[id].flag_0_dx = x1 - population[id].nuc_x;
-            population[id].flag_0_dy = y1 - population[id].nuc_y;
+            population[id].flag_0_dx = dx_to_nuc;
+            population[id].flag_0_dy = dy_to_nuc;
         }
         if(flag_1_str > population[id].flag_1_str)
         {
             population[id].flag_1_str = flag_1_str;
-            population[id].flag_1_dx = x1 - population[id].nuc_x;
-            population[id].flag_1_dy = y1 - population[id].nuc_y;
+            population[id].flag_1_dx = dx_to_nuc;
+            population[id].flag_1_dy = dy_to_nuc;
         }
         if(flag_2_str > population[id].flag_2_str)
         {
             population[id].flag_2_str = flag_2_str;
-            population[id].flag_2_dx = x1 - population[id].nuc_x;
-            population[id].flag_2_dy = y1 - population[id].nuc_y;
+            population[id].flag_2_dx = dx_to_nuc;
+            population[id].flag_2_dy = dy_to_nuc;
         }
         if(friends > population[id].friend_str)
         {
             population[id].friend_str = friends;
-            population[id].friend_dx = x1 - population[id].nuc_x;
-            population[id].friend_dy = y1 - population[id].nuc_y;
+            population[id].friend_dx = dx_to_nuc;
+            population[id].friend_dy = dy_to_nuc;
         }
+        
         partner_id = population[id].partner_id;
         partner_hash = population[partner_id].target_hash;
         
         if(population[partner_id].alive == 0) population[id].partner_id = 0;
         
         if(partner_id != 0 && id == population[partner_id].partner_id
-         && population[id].sex == 0 && population[id].fertilized == 0
-         && population[id].solidify == 0 && population[partner_id].solidify == 0
-         )
+         && population[id].sex == 0
+         && population[id].solidify == 0 && population[partner_id].solidify == 0)
         {
             Child_Genome_Combine(partner_id, id);
             population[id].fertilized = 1;
             population[id].partner_id = 0;
             population[partner_id].partner_id = 0;
-            
             population[partner_id].has_reproduced = 1;
-            
             // printf("%5d fertilized by %5d\n", id, partner_id);
         }
     }
-    
-    return counter;
 }
 
 uint16_t Id_Count(int16_t x, int16_t y, uint16_t id)
@@ -2761,7 +2783,7 @@ void Stats_CollectAndPrint()
            pop_stats.max_material, pop_stats.avg_neighbors);
     printf("BEHAVIOR: parasites = %u predators = %u builders = %u\n",
            eco_stats.parasite_count, eco_stats.predator_count, eco_stats.builder_count);
-    printf("SOCIAL: egoist(<=16)=%u low(17-32)=%u medium(33-48)=%u high(>48)=%u\n",
+    printf("SOCIAL: egoist = %u low( = %u medium = %u high = %u\n",
            social_egoist, social_low, social_medium, social_high);
     printf("SIZE DIST: tiny = %u small = %u medium = %u large = %u giant = %u\n",
            eco_stats.tiny_organisms, eco_stats.small_organisms, eco_stats.medium_organisms,
