@@ -1070,16 +1070,16 @@ void Best_Genome_Spread()
 {
     // if(debug) fprintf(stderr, "\nBest_Genome_Spread");
     // printf("best_genome_spread\n");
-    uint8_t current_org = 0;
+    uint16_t current_org = 0;
     uint16_t current_best = free_top;
     
     while(current_best >= MAX_ORGANISMS * (re_frac - 1) / re_frac)
     {
         Genome_Copy(current_best, current_org, 0);
-        uint8_t bot = min(current_org + 1, MAX_ORGANISMS);
-        uint8_t mid = min(current_org + (re_frac - 1) / 2, MAX_ORGANISMS);
-        uint8_t top = min(current_org + (re_frac - 1) - 1, MAX_ORGANISMS);
-        uint8_t last = min(current_org + re_frac - 1, MAX_ORGANISMS);
+        uint16_t bot = min(current_org + 1, MAX_ORGANISMS);
+        uint16_t mid = min(current_org + (re_frac - 1) / 2, MAX_ORGANISMS);
+        uint16_t top = min(current_org + (re_frac - 1) - 1, MAX_ORGANISMS);
+        uint16_t last = min(current_org + re_frac - 1, MAX_ORGANISMS);
         Genome_Copy(current_best, last, GENOME_SIZE);
         for(int org = bot; org < mid; org++)
         {
@@ -1092,7 +1092,7 @@ void Best_Genome_Spread()
             
         }
         current_best--;
-        current_org += MAX_ORGANISMS / re_frac;
+        current_org = min(current_org + MAX_ORGANISMS / re_frac, MAX_ORGANISMS - 1);
     }
 }
 
