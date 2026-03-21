@@ -21,6 +21,7 @@ void Events_Handle()
             if(e.key.keysym.sym == SDLK_q)
             {
                 display_mode = 1 - display_mode;
+                timer = 100;
             }
             if(e.key.keysym.sym == SDLK_ESCAPE)
             {

@@ -2,7 +2,7 @@
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-uint8_t display_mode = 1;
+
 
 void Graphics_Init()
 {
@@ -137,15 +137,15 @@ void Grid_Draw()
                         b = value;
                         if(solid)
                         {
-                            r = 0;
-                            g = 0;
+                            r = 255;
+                            g = 255;
                             b = 255;
                         }
                     }
                     else if(population[id].alive)
                     {
                         // Обычный организм - цвет зависит от genome_hash
-                        int value = population[id].genome_hash / 500;
+                        int value = population[id].has_reproduced;
                         int lifetime = Grid_Get(j, i)->lifetime;
                         int life_wave_str = Grid_Get(j, i)->lifetime;
                         int flag_0 = population[id].flag_0 * 8;
@@ -154,9 +154,9 @@ void Grid_Draw()
                         // r = 0;
                         // g = (255 - value) * lifetime / 255;
                         // b = value * lifetime / 255;
-                        r = 0;
-                        g = lifetime;
-                        b = 0;
+                        r = population[id].attack * 255;
+                        g = population[id].fertilized * 255;
+                        b = population[id].has_reproduced * 255;
                     }
             
                     rect.x = j * CELL_SIZE;
@@ -227,7 +227,7 @@ void Save_Screenshot(const char* filename, int mode)
                 {
                     if (cell->solid)
                     {
-                        int value = cell->mat;
+                        int value = max(cell->mat, 127);
                         color = SDL_MapRGB(surface->format, 0, 0, value);
                     }
                     else

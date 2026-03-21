@@ -15,12 +15,12 @@ uint8_t timer = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
-uint8_t food_mat = 20;
+uint8_t food_mat = 100;
 uint16_t min_mat = 20;
 uint8_t food_mult = 10;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
-uint16_t lifetime = 4 * GENOME_SIZE;
+uint16_t lifetime = 8 * GENOME_SIZE;
 uint8_t re_frac = 200;
 uint8_t debug = 1;
 uint8_t base_mutate_chance = 10;
@@ -31,6 +31,8 @@ static uint32_t asexual_reproductions = 0;
 static uint32_t sexual_reproductions = 0;
 static uint32_t deaths = 0;
 static uint32_t solidify_count = 0;
+
+uint8_t display_mode = 1;
 
 FILE *file_ptr;
 uint16_t integer;
@@ -703,10 +705,8 @@ void Grid_Update()
     Organism_Update();
     
     timer++;
-    if(timer > 0)
+    if(timer > (1 - display_mode) * 100)
     {
-        // if(free_top == MAX_ORGANISMS - 2) Repopulate();
-        
         timer = 0;
     }
     
@@ -2448,7 +2448,8 @@ void Organism_Update()
                         if(child_id != 0) {
                             Child_Genome_Copy(i, child_id, population[i].mutate_chance);
                             population[i].multiply = 0;
-                            population[i].lifetime = lifetime;
+                            if(population[i].has_reproduced == 0)
+                                population[i].lifetime = lifetime;
                             // printf("multiply success mat: %d\n", population[child_id].material);
                             if(population[i].fertilized)
                                 sexual_reproductions++;
@@ -2553,11 +2554,11 @@ void Organism_Update()
 
             uint16_t total_chance = max(volume_chance, speed_chance);
 
-            if(rand() % 100 >= volume_chance) {
+            if(rand() % 100 >= volume_chance * 0) {
                 population[i].lifetime = max(population[i].lifetime - 1, 0);
             }
-            if(rand() % 100 < speed_chance) {
-                population[i].lifetime = max(population[i].lifetime - 2, 0);
+            if(rand() % 100 < speed_chance * 0) {
+                population[i].lifetime = max(population[i].lifetime - 1, 0);
             }
             
             if(population[i].newborn == 1) 
@@ -2679,6 +2680,7 @@ void Repopulate()
         y = grid_height / 2 + (rand() % grid_height + rand() % grid_height) / 2;
         
         Grid_Set_Food(x, y);
+        if(rand() % 2 == 0) Grid_Get(x, y)->solid = 1;
     }
     
     for(int i = 0; i < MAX_ORGANISMS / 2; i++)

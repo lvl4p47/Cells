@@ -140,6 +140,7 @@ typedef struct {
     uint32_t giant_organisms;        // >500
 } EcologyStats;
 
+extern uint8_t display_mode;
 
 
 extern uint16_t grid_width;
