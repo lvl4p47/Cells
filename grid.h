@@ -3,7 +3,7 @@
 
 #include "utility.h"
 
-#define MAX_ORGANISMS 30000
+#define MAX_ORGANISMS 60000
 #define STARTING_ORGANISMS 5000
 #define GENOME_SIZE 256
 

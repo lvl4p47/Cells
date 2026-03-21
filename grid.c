@@ -10,18 +10,18 @@ uint16_t order[MAX_ORGANISMS];
 uint16_t test_id;
 
 int organism_count = 0;
-int16_t free_top = -1;
+int32_t free_top = -1;
 uint8_t timer = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
-uint8_t food_mat = 100;
+uint8_t food_mat = 20;
 uint16_t min_mat = 20;
 uint8_t food_mult = 10;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
 uint16_t lifetime = 32 * GENOME_SIZE;
-uint8_t re_frac = 200;
+uint8_t re_frac = 1200;
 uint8_t debug = 1;
 uint8_t base_mutate_chance = 10;
 
@@ -2673,7 +2673,7 @@ void Repopulate()
     uint16_t x, y;
 
     
-    for(int i = 0; i < MAX_ORGANISMS * food_mult; i++)
+    for(int i = 0; i < STARTING_ORGANISMS * food_mult; i++)
     {
         x = grid_width / 2 + (rand() % grid_width + rand() % grid_width) / 2;
         y = grid_height / 2 + (rand() % grid_height + rand() % grid_height) / 2;
