@@ -2658,6 +2658,12 @@ void Stats_CollectAndPrint()
     uint32_t total_neighbors = 0;
     uint32_t organism_count = 0;
     
+    // Социальные градации
+    uint32_t social_egoist = 0;      // pacifism <= 16
+    uint32_t social_low = 0;         // 16 < pacifism <= 32
+    uint32_t social_medium = 0;      // 32 < pacifism <= 48
+    uint32_t social_high = 0;        // pacifism > 48
+    
     // ========== ПРОХОД ПО ОРГАНИЗМАМ ==========
     for (int i = 1; i < MAX_ORGANISMS; i++) {
         if (!population[i].alive) continue;
@@ -2673,7 +2679,12 @@ void Stats_CollectAndPrint()
         
         if (org->take_mat) eco_stats.parasite_count++;
         if (org->attack) eco_stats.predator_count++;
-        if (org->pacifism_treshold > 32) eco_stats.social_count++;
+        
+        // Социальные градации
+        if (org->pacifism_treshold <= 16) social_egoist++;
+        else if (org->pacifism_treshold <= 32) social_low++;
+        else if (org->pacifism_treshold <= 48) social_medium++;
+        else social_high++;
         
         for (int g = 0; g < GENOME_SIZE; g++) {
             switch (org->genome[g])
@@ -2681,14 +2692,9 @@ void Stats_CollectAndPrint()
             case SOLIDIFY:
                 eco_stats.builder_count++;
                 break;
-            case PACIFISM_POS:
-                eco_stats.social_count++;
-                break;
-            
             default:
                 break;
             }
-            
         }
         
         if (org->volume < 10) eco_stats.tiny_organisms++;
@@ -2753,9 +2759,10 @@ void Stats_CollectAndPrint()
     printf("SIZE: avg_vol = %u max_vol = %u avg_mat = %u max_mat = %u avg_neighbors = %u\n",
            pop_stats.avg_volume, pop_stats.max_volume, pop_stats.avg_material, 
            pop_stats.max_material, pop_stats.avg_neighbors);
-    printf("BEHAVIOR: parasites = %u predators = %u social = %u builders = %u\n",
-           eco_stats.parasite_count, eco_stats.predator_count, 
-           eco_stats.social_count, eco_stats.builder_count);
+    printf("BEHAVIOR: parasites = %u predators = %u builders = %u\n",
+           eco_stats.parasite_count, eco_stats.predator_count, eco_stats.builder_count);
+    printf("SOCIAL: egoist(<=16)=%u low(17-32)=%u medium(33-48)=%u high(>48)=%u\n",
+           social_egoist, social_low, social_medium, social_high);
     printf("SIZE DIST: tiny = %u small = %u medium = %u large = %u giant = %u\n",
            eco_stats.tiny_organisms, eco_stats.small_organisms, eco_stats.medium_organisms,
            eco_stats.large_organisms, eco_stats.giant_organisms);
@@ -2789,22 +2796,21 @@ void Stats_CollectAndPrint()
         printf("]\n");
     }
     
-    // 2. Behavior (parasite, predator, social, builder)
+    // 2. Behavior (parasite, predator, builder)
     printf("\n BEHAVIOR HISTOGRAM\n");
-    uint32_t behavior_values[4] = {
+    uint32_t behavior_values[3] = {
         eco_stats.parasite_count,
         eco_stats.predator_count,
-        eco_stats.social_count,
         eco_stats.builder_count
     };
-    const char* behavior_labels[4] = {"Parasite", "Predator", "Social", "Builder"};
+    const char* behavior_labels[3] = {"Parasite", "Predator", "Builder"};
     
     uint32_t behavior_max = 1;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         if (behavior_values[i] > behavior_max) behavior_max = behavior_values[i];
     }
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         int bar_len = (behavior_max > 0) ? (behavior_values[i] * BAR_WIDTH / behavior_max) : 0;
         printf("%-8s: %6u [", behavior_labels[i], behavior_values[i]);
         for (int j = 0; j < bar_len; j++) printf("#");
@@ -2812,7 +2818,30 @@ void Stats_CollectAndPrint()
         printf("]\n");
     }
     
-    // 3. Size distribution (tiny, small, medium, large, giant)
+    // 3. Social gradation
+    printf("\n SOCIAL HISTOGRAM\n");
+    uint32_t social_values[4] = {
+        social_egoist,
+        social_low,
+        social_medium,
+        social_high
+    };
+    const char* social_labels[4] = {"Egoist", "Low", "Medium", "High"};
+    
+    uint32_t social_max = 1;
+    for (int i = 0; i < 4; i++) {
+        if (social_values[i] > social_max) social_max = social_values[i];
+    }
+    
+    for (int i = 0; i < 4; i++) {
+        int bar_len = (social_max > 0) ? (social_values[i] * BAR_WIDTH / social_max) : 0;
+        printf("%-8s: %6u [", social_labels[i], social_values[i]);
+        for (int j = 0; j < bar_len; j++) printf("#");
+        for (int j = bar_len; j < BAR_WIDTH; j++) printf(" ");
+        printf("]\n");
+    }
+    
+    // 4. Size distribution (tiny, small, medium, large, giant)
     printf("\n SIZE DISTRIBUTION HISTOGRAM\n");
     uint32_t size_values[5] = {
         eco_stats.tiny_organisms,
@@ -2841,7 +2870,7 @@ void Stats_CollectAndPrint()
         printf("]\n");
     }
     
-    // 4. Resources (food, walls, flags)
+    // 5. Resources (food, walls, flags)
     printf("\n RESOURCES HISTOGRAM\n");
     uint32_t resource_values[3] = {
         eco_stats.total_food,
