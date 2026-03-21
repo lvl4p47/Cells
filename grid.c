@@ -12,7 +12,6 @@ uint16_t test_id;
 int organism_count = 0;
 int16_t free_top = -1;
 uint8_t timer = 0;
-uint32_t steps = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
@@ -26,6 +25,12 @@ uint8_t re_frac = 1000;
 uint8_t debug = 1;
 uint8_t base_mutate_chance = 10;
 
+// Статистика
+static uint32_t step_counter = 0;
+static uint32_t asexual_reproductions = 0;
+static uint32_t sexual_reproductions = 0;
+static uint32_t deaths = 0;
+static uint32_t solidify_count = 0;
 
 FILE *file_ptr;
 uint16_t integer;
@@ -313,7 +318,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                         if(grid_array[y1][x1].mat > 0) // breaking
                         {
                             population[id].material += 1;
-                            population[id].lifetime += 1;
+                            population[id].lifetime += 20;
                             grid_array[y1][x1].mat = max(grid_array[y1][x1].mat - 1, 0);
                         }
                         else // breakthrough
@@ -422,6 +427,7 @@ void Grid_Set_Food(uint16_t x, uint16_t y)
     grid_array[y1][x1].type = 1;
     grid_array[y1][x1].mat = food_mat;
     grid_array[y1][x1].cooldown = 0;
+    grid_array[y1][x1].solid = 0;
     
     population[MAX_ORGANISMS].volume = 0;
 }
@@ -433,6 +439,9 @@ void Grid_Update()
     //     freopen("debug.log", "w", stderr);
     //     fprintf(stderr, "\nGrid_Update");
     // }
+    
+    step_counter++;
+    
     total_mat = 0;
     uint32_t org_mat = 0, grid_mat = 0, vol_mat = 0, volume = 0;
     uint8_t membrane = 0;
@@ -691,14 +700,17 @@ void Grid_Update()
     
     Organism_Update();
     
-    steps++;
-    
     timer++;
     if(timer > 0)
     {
         // if(free_top == MAX_ORGANISMS - 2) Repopulate();
         
         timer = 0;
+    }
+    
+    if (step_counter % 1000 == 0)
+    {
+        Stats_CollectAndPrint(step_counter);
     }
 }
 
@@ -1188,6 +1200,8 @@ uint8_t Organism_Quit(uint16_t id)
     free_top++;
     free_stack[free_top] = id;
     
+    deaths++;
+    
     // Опционально: обнуляем данные в массиве организмов
     
     population[id].nuc_x = 0;
@@ -1332,23 +1346,19 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
                 
                 random_hash = rand() % max_pacifism_threshold;
                 uint32_t diff_candidate = abs(hash - population[id].target_hash);
-                uint32_t diff_random = rand() % max_pacifism_threshold;
                 uint32_t diff_existing = abs(partner_hash - population[id].target_hash);
                 
-                uint32_t chance = 100 - (diff_candidate * 100 / (diff_candidate + diff_random + 1));
-                
-                if(rand() % (100 * linear_size) < chance) 
+                if(rand() % linear_size == 0)
                 {
                     if (partner_id == 0) 
                     {
                         population[id].partner_id = id1;
-                    } else if (diff_candidate < diff_existing) 
+                    } 
+                    else if (diff_candidate < diff_existing) 
                     {
                         population[id].partner_id = id1;
                     }
                 }
-                
-                
             }
             
             if(Grid_Get(x1 + dx, y1 + dy)->flag_0)
@@ -1437,7 +1447,8 @@ uint16_t Is_Membrane(int16_t x, int16_t y)
         
         if(partner_id != 0 && id == population[partner_id].partner_id
          && population[id].sex == 0 && population[id].fertilized == 0
-         && population[id].solidify == 0 && population[partner_id].solidify == 0)
+         && population[id].solidify == 0 && population[partner_id].solidify == 0
+         )
         {
             Child_Genome_Combine(partner_id, id);
             population[id].fertilized = 1;
@@ -2249,6 +2260,7 @@ void Organism_Update()
                 {
                     population[i].solidify = 1;
                     population[i].lifetime = 0;
+                    solidify_count++;
                 }
                 break;
             
@@ -2373,7 +2385,9 @@ void Organism_Update()
                             population[i].lifetime = lifetime;
                             // printf("multiply success mat: %d\n", population[child_id].material);
                             if(population[i].fertilized)
-                                printf("%5d gave birth to %5d\n", id, child_id);
+                                sexual_reproductions++;
+                            else
+                                asexual_reproductions++;
                         } else {
                             population[i].material += population[i].min_mat;
                             // printf("multiply fail\n");
@@ -2499,11 +2513,11 @@ void Organism_Update()
     if(free_top >= MAX_ORGANISMS * (re_frac - 1) / re_frac) 
     {
         char buf[128];
-        snprintf(buf, sizeof(buf), "screenshots/material_steps:%d.png", steps);
+        snprintf(buf, sizeof(buf), "screenshots/material_steps:%d.png", step_counter);
         Save_Screenshot(buf, SCREENSHOT_MATERIALS);
-        snprintf(buf, sizeof(buf), "screenshots/walls_steps:%d.png", steps);
+        snprintf(buf, sizeof(buf), "screenshots/walls_steps:%d.png", step_counter);
         Save_Screenshot(buf, SCREENSHOT_WALLS);
-        snprintf(buf, sizeof(buf), "screenshots/flags_steps:%d.png", steps);
+        snprintf(buf, sizeof(buf), "screenshots/flags_steps:%d.png", step_counter);
         Save_Screenshot(buf, SCREENSHOT_FLAGS);
         Repopulate();
     }
@@ -2553,6 +2567,7 @@ uint16_t Most_Common_Neighbor(int16_t x, int16_t y)
 void Repopulate()
 {
     // if(debug) fprintf(stderr, "\nRepopulate");
+    step_counter = 0;
     Best_Genome_Spread();
     
     for(int i = 0; i < MAX_ORGANISMS; i++)
@@ -2621,4 +2636,235 @@ void Order_Shuffle()
         order[j] = temp;
     }
 
+}
+
+void Stats_CollectAndPrint()
+{
+    PopulationStats pop_stats;
+    EcologyStats eco_stats;
+    
+    // Обнуляем структуры
+    memset(&pop_stats, 0, sizeof(PopulationStats));
+    memset(&eco_stats, 0, sizeof(EcologyStats));
+    
+    pop_stats.step = step_counter;
+    pop_stats.asexual_reproductions = asexual_reproductions;
+    pop_stats.sexual_reproductions = sexual_reproductions;
+    pop_stats.deaths = deaths;
+    pop_stats.solidify_count = solidify_count;
+    
+    uint32_t total_volume = 0;
+    uint32_t total_material = 0;
+    uint32_t total_neighbors = 0;
+    uint32_t organism_count = 0;
+    
+    // ========== ПРОХОД ПО ОРГАНИЗМАМ ==========
+    for (int i = 1; i < MAX_ORGANISMS; i++) {
+        if (!population[i].alive) continue;
+        
+        Organism* org = &population[i];
+        organism_count++;
+        
+        total_volume += org->volume;
+        total_material += org->material;
+        
+        if (org->volume > pop_stats.max_volume) pop_stats.max_volume = org->volume;
+        if (org->material > pop_stats.max_material) pop_stats.max_material = org->material;
+        
+        if (org->take_mat) eco_stats.parasite_count++;
+        if (org->attack) eco_stats.predator_count++;
+        if (org->pacifism_treshold > 32) eco_stats.social_count++;
+        
+        for (int g = 0; g < GENOME_SIZE; g++) {
+            switch (org->genome[g])
+            {
+            case SOLIDIFY:
+                eco_stats.builder_count++;
+                break;
+            case PACIFISM_POS:
+                eco_stats.social_count++;
+                break;
+            
+            default:
+                break;
+            }
+            
+        }
+        
+        if (org->volume < 10) eco_stats.tiny_organisms++;
+        else if (org->volume < 50) eco_stats.small_organisms++;
+        else if (org->volume < 200) eco_stats.medium_organisms++;
+        else if (org->volume < 500) eco_stats.large_organisms++;
+        else eco_stats.giant_organisms++;
+        
+        // Подсчёт соседей
+        for (int y = org->min_y; y <= org->max_y; y++) {
+            for (int x = org->min_x; x <= org->max_x; x++)
+            {
+                Cell* cell = &grid_array[mod(y, grid_height)][mod(x, grid_width)];
+                if (cell->id == i) {
+                    
+                    int neighbors = 0;
+                    for (int dy = -1; dy <= 1; dy++) {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            if (dx == 0 && dy == 0) continue;
+                            Cell* neighbor = &grid_array[mod(y + dy, grid_height)][mod(x + dx, grid_width)];
+                            if (neighbor->id == i) neighbors++;
+                        }
+                    }
+                    total_neighbors += neighbors;
+                }
+            }
+        }
+    }
+    
+    if (organism_count > 0) {
+        pop_stats.alive_count = organism_count;
+        pop_stats.avg_volume = total_volume / organism_count;
+        pop_stats.avg_material = total_material / organism_count;
+        pop_stats.avg_neighbors = total_neighbors / organism_count;
+    }
+    
+    // ========== ПРОХОД ПО ПОЛЮ ==========
+    for (int y = 0; y < grid_height; y++) {
+        for (int x = 0; x < grid_width; x++) {
+            Cell* cell = &grid_array[y][x];
+            
+            if (cell->id == MAX_ORGANISMS) {
+                eco_stats.total_food += cell->mat;
+            }
+            if (cell->solid) {
+                eco_stats.total_walls++;
+            }
+            
+            eco_stats.total_flags += cell->flag_0 + cell->flag_1 + cell->flag_2;
+            eco_stats.flag_0_total += cell->flag_0;
+            eco_stats.flag_1_total += cell->flag_1;
+            eco_stats.flag_2_total += cell->flag_2;
+        }
+    }
+    
+    // ========== ВЫВОД В КОНСОЛЬ ==========
+    printf("\n STEP %u\n", pop_stats.step);
+    printf("POPULATION: alive = %u\n", pop_stats.alive_count);
+    printf("REPRODUCTION: asexual = %u sexual = %u deaths = %u solidify = %u\n",
+           pop_stats.asexual_reproductions, pop_stats.sexual_reproductions, 
+           pop_stats.deaths, pop_stats.solidify_count);
+    printf("SIZE: avg_vol = %u max_vol = %u avg_mat = %u max_mat = %u avg_neighbors = %u\n",
+           pop_stats.avg_volume, pop_stats.max_volume, pop_stats.avg_material, 
+           pop_stats.max_material, pop_stats.avg_neighbors);
+    printf("BEHAVIOR: parasites = %u predators = %u social = %u builders = %u\n",
+           eco_stats.parasite_count, eco_stats.predator_count, 
+           eco_stats.social_count, eco_stats.builder_count);
+    printf("SIZE DIST: tiny = %u small = %u medium = %u large = %u giant = %u\n",
+           eco_stats.tiny_organisms, eco_stats.small_organisms, eco_stats.medium_organisms,
+           eco_stats.large_organisms, eco_stats.giant_organisms);
+    printf("RESOURCES: food = %u walls = %u flags = %u (R: %u G: %u B: %u)\n",
+           eco_stats.total_food, eco_stats.total_walls, eco_stats.total_flags,
+           eco_stats.flag_0_total, eco_stats.flag_1_total, eco_stats.flag_2_total);
+           
+    // ========== ГИСТОГРАММЫ ==========
+    #define BAR_WIDTH 64
+    
+    // 1. Reproduction (asexual, sexual, deaths, solidify)
+    printf("\n REPRODUCTION HISTOGRAM\n");
+    uint32_t repro_values[4] = {
+        pop_stats.asexual_reproductions,
+        pop_stats.sexual_reproductions,
+        pop_stats.deaths,
+        pop_stats.solidify_count
+    };
+    const char* repro_labels[4] = {"Asexual", "Sexual", "Deaths", "Solidify"};
+    
+    uint32_t repro_max = 1;
+    for (int i = 0; i < 4; i++) {
+        if (repro_values[i] > repro_max) repro_max = repro_values[i];
+    }
+    
+    for (int i = 0; i < 4; i++) {
+        int bar_len = (repro_max > 0) ? (repro_values[i] * BAR_WIDTH / repro_max) : 0;
+        printf("%-8s: %6u [", repro_labels[i], repro_values[i]);
+        for (int j = 0; j < bar_len; j++) printf("#");
+        for (int j = bar_len; j < BAR_WIDTH; j++) printf(" ");
+        printf("]\n");
+    }
+    
+    // 2. Behavior (parasite, predator, social, builder)
+    printf("\n BEHAVIOR HISTOGRAM\n");
+    uint32_t behavior_values[4] = {
+        eco_stats.parasite_count,
+        eco_stats.predator_count,
+        eco_stats.social_count,
+        eco_stats.builder_count
+    };
+    const char* behavior_labels[4] = {"Parasite", "Predator", "Social", "Builder"};
+    
+    uint32_t behavior_max = 1;
+    for (int i = 0; i < 4; i++) {
+        if (behavior_values[i] > behavior_max) behavior_max = behavior_values[i];
+    }
+    
+    for (int i = 0; i < 4; i++) {
+        int bar_len = (behavior_max > 0) ? (behavior_values[i] * BAR_WIDTH / behavior_max) : 0;
+        printf("%-8s: %6u [", behavior_labels[i], behavior_values[i]);
+        for (int j = 0; j < bar_len; j++) printf("#");
+        for (int j = bar_len; j < BAR_WIDTH; j++) printf(" ");
+        printf("]\n");
+    }
+    
+    // 3. Size distribution (tiny, small, medium, large, giant)
+    printf("\n SIZE DISTRIBUTION HISTOGRAM\n");
+    uint32_t size_values[5] = {
+        eco_stats.tiny_organisms,
+        eco_stats.small_organisms,
+        eco_stats.medium_organisms,
+        eco_stats.large_organisms,
+        eco_stats.giant_organisms
+    };
+    const char* size_labels[5] = {"Tiny", "Small", "Medium", "Large", "Giant"};
+    
+    uint32_t size_max = 1;
+    uint32_t log_values;
+    for (int i = 0; i < 5; i++)
+    {
+        log_values = lg(size_values[i], 2);
+        if (log_values > size_max) size_max = log_values;
+    }
+    
+    for (int i = 0; i < 5; i++)
+    {
+        log_values = lg(size_values[i], 2);
+        int bar_len = (size_max > 0) ? (log_values * BAR_WIDTH / size_max) : 0;
+        printf("%-6s: %8u [", size_labels[i], size_values[i]);
+        for (int j = 0; j < bar_len; j++) printf("#");
+        for (int j = bar_len; j < BAR_WIDTH; j++) printf(" ");
+        printf("]\n");
+    }
+    
+    // 4. Resources (food, walls, flags)
+    printf("\n RESOURCES HISTOGRAM\n");
+    uint32_t resource_values[3] = {
+        eco_stats.total_food,
+        eco_stats.total_walls,
+        eco_stats.total_flags
+    };
+    const char* resource_labels[3] = {"Food", "Walls", "Flags"};
+    
+    uint32_t resource_max = 1;
+    for (int i = 0; i < 3; i++) {
+        if (resource_values[i] > resource_max) resource_max = resource_values[i];
+    }
+    
+    for (int i = 0; i < 3; i++) {
+        int bar_len = (resource_max > 0) ? (resource_values[i] * BAR_WIDTH / resource_max) : 0;
+        printf("%-6s: %8u [", resource_labels[i], resource_values[i]);
+        for (int j = 0; j < bar_len; j++) printf("#");
+        for (int j = bar_len; j < BAR_WIDTH; j++) printf(" ");
+        printf("]\n");
+    }
+    
+    asexual_reproductions = 0;
+    sexual_reproductions = 0;
+    deaths = 0;
+    solidify_count = 0;
 }

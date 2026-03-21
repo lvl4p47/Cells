@@ -2,7 +2,7 @@
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-uint8_t display_mode = 0;
+uint8_t display_mode = 1;
 
 void Graphics_Init()
 {
@@ -11,7 +11,8 @@ void Graphics_Init()
         return 1;
     }
 
-    window = SDL_CreateWindow("templateSDL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_BORDERLESS);
+    window = SDL_CreateWindow("templateSDL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT,
+    SDL_WINDOW_BORDERLESS);
     if (window == NULL) {
         fprintf(stderr, "Window could not be created! SDL Error: %s\n", SDL_GetError());
         SDL_Quit();
@@ -36,12 +37,22 @@ void Graphics_Quit()
 
 void Screen_Clear()
 {
+    uint32_t flags = SDL_GetWindowFlags(window);
+    if (flags & SDL_WINDOW_MINIMIZED) 
+    {
+        return;
+    }
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 }
 
 void Screen_Draw()
 {
+    uint32_t flags = SDL_GetWindowFlags(window);
+    if (flags & SDL_WINDOW_MINIMIZED) 
+    {
+        return;
+    }
     Grid_Draw();
     // Organism_Draw();
     SDL_RenderPresent(renderer);

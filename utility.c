@@ -31,18 +31,3 @@ float power(int a, int n)
     }
     return ans;
 }
-
-
-
-int lg(int a, int pow)
-{
-    int ans = 0;
-    int step = 0;
-    while(ans < a && step < 1000)
-    {
-        ans *= pow;
-        step++;
-    }
-    
-    return ans;
-}

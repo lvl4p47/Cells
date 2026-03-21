@@ -36,6 +36,17 @@ static inline uint16_t fast_root(uint16_t x)
 
     return ans;
 }
-int lg(int a, int pow);
+static inline uint32_t lg(uint32_t a, uint32_t pow)
+{
+    int ans = 1;
+    int step = 0;
+    while(ans < a && step < 1000)
+    {
+        ans *= pow;
+        step++;
+    }
+    
+    return step;
+}
 
 #endif

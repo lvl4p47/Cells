@@ -101,6 +101,47 @@ typedef struct {
     uint8_t solidify;
 } Organism;
 
+typedef struct {
+    uint32_t step;
+    uint32_t alive_count;           // живых организмов
+    uint32_t avg_neighbors;         // среднее количество соседей
+    uint32_t avg_volume;            // средний объём организма
+    uint32_t avg_material;          // средний материал на организм
+    uint32_t max_volume;            // максимальный объём
+    uint32_t max_material;          // максимальный материал
+    uint32_t asexual_reproductions; // делений за шаг   
+    uint32_t sexual_reproductions;  // рождений за шаг
+    uint32_t deaths;                // смертей за шаг
+    uint32_t solidify_count;        // затвердеваний за шаг
+} PopulationStats;
+
+typedef struct {
+    // Типы организмов
+    uint32_t parasite_count;        // с TAKE_MAT_ON
+    uint32_t predator_count;        // с ATTACK_ON
+    uint32_t social_count;          // с pacifism_threshold > 32
+    uint32_t builder_count;         // с SOLIDIFY в геноме
+    
+    // Ресурсы
+    uint32_t total_food;             // всего еды на поле
+    uint32_t total_walls;            // всего клеток стен
+    uint32_t total_flags;            // всего флагов (сумма flag_0/1/2)
+    
+    // Информация
+    uint32_t flag_0_total;           // сумма flag_0
+    uint32_t flag_1_total;
+    uint32_t flag_2_total;
+    
+    // Размеры
+    uint32_t tiny_organisms;         // volume < 10
+    uint32_t small_organisms;        // 10-50
+    uint32_t medium_organisms;       // 50-200
+    uint32_t large_organisms;        // 200-500
+    uint32_t giant_organisms;        // >500
+} EcologyStats;
+
+
+
 extern uint16_t grid_width;
 extern uint16_t grid_height;
 extern Organism population[MAX_ORGANISMS + 1];
@@ -214,6 +255,7 @@ uint8_t Expand(int16_t x, int16_t y, int8_t strength);
 uint16_t Most_Common_Neighbor(int16_t x, int16_t y);
 void Repopulate();
 void Order_Shuffle();
+void Stats_CollectAndPrint();
 
 void Save_Screenshot(const char* filename, int mode);
 

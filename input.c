@@ -22,6 +22,10 @@ void Events_Handle()
             {
                 display_mode = 1 - display_mode;
             }
+            if(e.key.keysym.sym == SDLK_ESCAPE)
+            {
+                SDL_MinimizeWindow(window);
+            }
         }
         
         if (e.type == SDL_MOUSEBUTTONDOWN) 
