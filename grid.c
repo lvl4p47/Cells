@@ -931,7 +931,7 @@ void Genome_Init(uint16_t id, uint8_t test)
         file_ptr = fopen(buf, "r");
         if(file_ptr == NULL)
         {
-            printf("file error id: %d\n", id);
+            // printf("file error id: %d\n", id);
             srand(clock());
             for(int i = 0; i < GENOME_SIZE; i++)
             {
