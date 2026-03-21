@@ -903,7 +903,7 @@ void Genome_Init(uint16_t id, uint8_t test)
         file_ptr = fopen(buf, "r");
         if(file_ptr == NULL)
         {
-            printf("file error id: %d\n", id);
+            // printf("file error id: %d\n", id);
             srand(clock());
             for(int i = 0; i < GENOME_SIZE; i++)
             {
@@ -2380,7 +2380,7 @@ void Organism_Update()
                 }
                 
                 if(move && Grid_Get(x + dx, y + dy)->id == i
-                && (Is_Membrane(x + dx, y + dy) == 0 || multiply))
+                && (Is_Membrane(x + dx, y + dy) == 0))
                 { 
                     population[i].nuc_x = mod(population[i].nuc_x + dx, grid_width);
                     population[i].nuc_y = mod(population[i].nuc_y + dy, grid_height);
@@ -2424,30 +2424,23 @@ void Organism_Update()
             
             grid_array[population[i].nuc_y][population[i].nuc_x].type = 1;
             
-            if(population[i].solidify == 0 && multiply && (Is_Membrane(population[i].nuc_x, population[i].nuc_y)))
+            if(population[i].solidify == 0 && multiply)
             {
-                int deltax = rand() % 3 - 1;
-                int deltay = rand() % 3 - 1;
+                int deltax = population[i].free_dx;
+                int deltay = population[i].free_dy;
+                int x = population[i].nuc_x + deltax;
+                int y = population[i].nuc_y + deltay;
                 
-                for(int t = 0; t < 10; t++)
-                {
-                    if(Grid_Get(population[i].nuc_x + deltax, population[i].nuc_y + deltay)->id == 0)
-                        t = 10;
-                    else
-                    {
-                        deltax = rand() % 3 - 1;
-                        deltay = rand() % 3 - 1;
-                    }
-                }
-                
-                if(Grid_Get(population[i].nuc_x + deltax, population[i].nuc_y + deltay)->id == 0)
+                if(Grid_Get(x, y)->id == i)
                 {
                     if(population[i].material > 2 * population[i].min_mat)
                     {
                         population[i].material -= population[i].min_mat;
                         
+                        Grid_Set(x, y, 0);
+                        
                         uint16_t child_id = 0;
-                        child_id = Organism_Init(population[i].nuc_x + deltax, population[i].nuc_y + deltay);
+                        child_id = Organism_Init(x, y);
                         
                         if(child_id != 0) {
                             Child_Genome_Copy(i, child_id, population[i].mutate_chance);
@@ -2689,7 +2682,7 @@ void Repopulate()
         if(rand() % 10 == 0) Grid_Get(x, y)->solid = 1;
     }
     
-    for(int i = 0; i < MAX_ORGANISMS / 2; i++)
+    for(int i = 0; i < STARTING_ORGANISMS; i++)
     {
         // x = (rand() % grid_width + rand() % grid_width) / 2;
         // y = (rand() % grid_height + rand() % grid_height) / 2;
