@@ -20,7 +20,7 @@ uint16_t min_mat = 20;
 uint8_t food_mult = 10;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
-uint16_t lifetime = 8 * GENOME_SIZE;
+uint16_t lifetime = 32 * GENOME_SIZE;
 uint8_t re_frac = 200;
 uint8_t debug = 1;
 uint8_t base_mutate_chance = 10;
@@ -298,7 +298,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 if(grid_array[y1][x1].solid == 0)
                 {
                     population[id].material += grid_array[y1][x1].mat - 1;
-                    population[id].lifetime += 1;
+                    // population[id].lifetime += 1;
                     grid_array[y1][x1].mat = 1;
                     
                     grid_array[y1][x1].id = id;
@@ -315,13 +315,17 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 }
                 else 
                 {
-                    if(rand() & 4 == 0)
+                    if(rand() & 1 == 0)
                     {
+                        uint8_t strength = population[id].volume / 20;
                         if(grid_array[y1][x1].mat > 0) // breaking
                         {
-                            population[id].material += 1;
-                            population[id].lifetime += 20;
-                            grid_array[y1][x1].mat = max(grid_array[y1][x1].mat - 1, 0);
+                            population[id].material += grid_array[y1][x1].mat;
+                            // population[id].lifetime += 5;
+                            grid_array[y1][x1].mat = max(grid_array[y1][x1].mat - strength, 0);
+                            
+                            population[id].vx /= 2;
+                            population[id].vy /= 2;
                         }
                         else // breakthrough
                         {
@@ -353,7 +357,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 {
                     // printf("body attack");
                     population[id].material += grid_array[y1][x1].mat - 1;
-                population[id].lifetime += grid_array[y1][x1].mat;
+                    // population[id].lifetime += grid_array[y1][x1].mat;
                     grid_array[y1][x1].mat = 1;
                     
                     if(population[temp_id].volume > 0)
@@ -373,7 +377,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                     population[id].material += population[temp_id].material / recycle_div;
                     population[temp_id].material = 0;
                     population[id].material += grid_array[y1][x1].mat - 1;
-                    population[id].lifetime += grid_array[y1][x1].mat;
+                    // population[id].lifetime += grid_array[y1][x1].mat;
                     grid_array[y1][x1].mat = 1;
                     
                     if(population[temp_id].volume > 0)
@@ -427,7 +431,7 @@ void Grid_Set_Food(uint16_t x, uint16_t y)
     grid_array[y1][x1].vy = 0;
     grid_array[y1][x1].strength = 0;
     grid_array[y1][x1].type = 1;
-    grid_array[y1][x1].mat = food_mat;
+    grid_array[y1][x1].mat = rand() % food_mat;
     grid_array[y1][x1].cooldown = 0;
     grid_array[y1][x1].solid = 0;
     
@@ -2448,8 +2452,8 @@ void Organism_Update()
                         if(child_id != 0) {
                             Child_Genome_Copy(i, child_id, population[i].mutate_chance);
                             population[i].multiply = 0;
-                            if(population[i].has_reproduced == 0)
-                                population[i].lifetime = lifetime;
+                            // if(population[i].has_reproduced == 0)
+                                // population[i].lifetime = lifetime;
                             // printf("multiply success mat: %d\n", population[child_id].material);
                             if(population[i].fertilized)
                                 sexual_reproductions++;
@@ -2533,33 +2537,35 @@ void Organism_Update()
                 population[i].multiply = 0;
             }
             
-            uint16_t volume = population[i].volume;
-            uint16_t base_volume = 1;
-            uint16_t volume_chance = 0;
+            // uint16_t volume = population[i].volume;
+            // uint16_t base_volume = 1;
+            // uint16_t volume_chance = 0;
             
-            uint16_t ratio;
-            uint16_t r;
+            // uint16_t ratio;
+            // uint16_t r;
             
-            if(volume <= base_volume) {
-                volume_chance = 0;
-            } else {
-                ratio = volume / base_volume;
-                r = fast_root(ratio);
-                volume_chance = 100 * (r - 1) / r;
-            }
+            // if(volume <= base_volume) {
+            //     volume_chance = 0;
+            // } else {
+            //     ratio = volume / base_volume;
+            //     r = fast_root(ratio);
+            //     volume_chance = 100 * (r - 1) / r;
+            // }
             
-            uint8_t speed = max(ax, ay);
+            // uint8_t speed = max(ax, ay);
             
-            uint8_t speed_chance = (speed * 100) / 128;
+            // uint8_t speed_chance = (speed * 100) / 128;
 
-            uint16_t total_chance = max(volume_chance, speed_chance);
+            // uint16_t total_chance = max(volume_chance, speed_chance);
 
-            if(rand() % 100 >= volume_chance * 0) {
-                population[i].lifetime = max(population[i].lifetime - 1, 0);
-            }
-            if(rand() % 100 < speed_chance * 0) {
-                population[i].lifetime = max(population[i].lifetime - 1, 0);
-            }
+            // if(rand() % 100 >= volume_chance * 0) {
+            //     population[i].lifetime = max(population[i].lifetime - 1, 0);
+            // }
+            // if(rand() % 100 < speed_chance * 0) {
+            //     population[i].lifetime = max(population[i].lifetime - 1, 0);
+            // }
+            
+            population[i].lifetime = max(population[i].lifetime - 1, 0);
             
             if(population[i].newborn == 1) 
             {
@@ -2680,13 +2686,15 @@ void Repopulate()
         y = grid_height / 2 + (rand() % grid_height + rand() % grid_height) / 2;
         
         Grid_Set_Food(x, y);
-        if(rand() % 2 == 0) Grid_Get(x, y)->solid = 1;
+        if(rand() % 10 == 0) Grid_Get(x, y)->solid = 1;
     }
     
     for(int i = 0; i < MAX_ORGANISMS / 2; i++)
     {
-        x = (rand() % grid_width + rand() % grid_width) / 2;
-        y = (rand() % grid_height + rand() % grid_height) / 2;
+        // x = (rand() % grid_width + rand() % grid_width) / 2;
+        // y = (rand() % grid_height + rand() % grid_height) / 2;
+        x = rand() % grid_width;
+        y = rand() % grid_height;
         if(Grid_Get(x, y)->id == 0)
             Organism_Init(x, y);
     }
