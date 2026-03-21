@@ -21,7 +21,7 @@ uint8_t food_mult = 10;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
 uint16_t lifetime = 4 * GENOME_SIZE;
-uint8_t re_frac = 1000;
+uint8_t re_frac = 200;
 uint8_t debug = 1;
 uint8_t base_mutate_chance = 10;
 
@@ -1329,18 +1329,20 @@ void Process_Membrane(int16_t x, int16_t y)
                 hash = population[id1].genome_hash;
                 partner_id = population[id].partner_id;
                 partner_hash = population[partner_id].target_hash;
-                
-                random_hash = rand() % max_pacifism_threshold;
+            
                 uint32_t diff_candidate = abs(hash - population[id].target_hash);
                 uint32_t diff_existing = abs(partner_hash - population[id].target_hash);
+                uint32_t pacifism_limit = max(max_pacifism_threshold * population[id].pacifism_treshold / 64, 1);
+                uint32_t difference = abs(hash - population[id].genome_hash);
+                int chance = difference * 100 / pacifism_limit;
                 
-                if (partner_id == 0) 
+                if(rand() % 100 < chance && rand() % linear_size == 0)
                 {
-                    population[id].partner_id = id1;
-                } 
-                else if(rand() % linear_size == 0)
-                {
-                    if (diff_candidate < diff_existing) 
+                    if (partner_id == 0) 
+                    {
+                        population[id].partner_id = id1;
+                    } 
+                    else if (diff_candidate < diff_existing) 
                     {
                         population[id].partner_id = id1;
                     }
@@ -2750,11 +2752,17 @@ void Stats_CollectAndPrint()
         else if (org->pacifism_treshold <= 48) social_medium++;
         else social_high++;
         
+        uint8_t is_builder = 0;
+        
         for (int g = 0; g < GENOME_SIZE; g++) {
             switch (org->genome[g])
             {
             case SOLIDIFY:
-                eco_stats.builder_count++;
+                if(is_builder == 0)
+                {
+                    eco_stats.builder_count++;
+                    is_builder = 1;
+                }
                 break;
             default:
                 break;
