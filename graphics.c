@@ -1,4 +1,5 @@
 #include "graphics.h"
+#include <SDL2/SDL_image.h>
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -8,7 +9,7 @@ void Graphics_Init()
 {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "SDL could not initialize! SDL Error: %s\n", SDL_GetError());
-        return 1;
+        return ;
     }
 
     window = SDL_CreateWindow("templateSDL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -16,7 +17,7 @@ void Graphics_Init()
     if (window == NULL) {
         fprintf(stderr, "Window could not be created! SDL Error: %s\n", SDL_GetError());
         SDL_Quit();
-        return 1;
+        return ;
     }
     
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
@@ -24,7 +25,7 @@ void Graphics_Init()
         fprintf(stderr, "Renderer could not be created! SDL Error: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
         SDL_Quit();
-        return 1;
+        return ;
     }
 }
 
@@ -37,24 +38,14 @@ void Graphics_Quit()
 
 void Screen_Clear()
 {
-    uint32_t flags = SDL_GetWindowFlags(window);
-    if (flags & SDL_WINDOW_MINIMIZED) 
-    {
-        return;
-    }
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 }
 
 void Screen_Draw()
 {
-    uint32_t flags = SDL_GetWindowFlags(window);
-    if (flags & SDL_WINDOW_MINIMIZED) 
-    {
-        return;
-    }
     Grid_Draw();
-    // Organism_Draw();
+    Organism_Draw();
     SDL_RenderPresent(renderer);
 }
 
@@ -89,17 +80,23 @@ void Grid_Draw()
                         
                             // Обычный организм - цвет зависит от genome_hash
                             int value = population[id].genome_hash / 500;
-                            int lifetime = Grid_Get(j, i)->lifetime;
-                            int life_wave_str = Grid_Get(j, i)->lifetime;
+                            int energy = Grid_Get(j, i)->energy;
+                            int life_wave_str = Grid_Get(j, i)->energy;
                             int flag_0 = population[id].flag_0 * 8;
                             int flag_1 = population[id].flag_1 * 8;
                             int flag_2 = population[id].flag_2 * 8; 
                             // r = 0;
-                            // g = (255 - value) * lifetime / 255;
-                            // b = value * lifetime / 255;
-                            r = 127 + flag_0;
-                            g = 127 + flag_1;
-                            b = 127 + flag_2;
+                            // g = (255 - value) * energy / 255;
+                            // b = value * energy / 255;
+                            // r = 127 + flag_0;
+                            // g = 127 + flag_1;
+                            // b = 127 + flag_2;
+                            if(energy != 255)
+                            {
+                                r = energy;
+                                g = 0;
+                                b = 255 - energy;
+                            }
                     
                             rect.x = mod(j, grid_width) * CELL_SIZE;
                             rect.y = mod(i, grid_height) * CELL_SIZE;
@@ -130,11 +127,12 @@ void Grid_Draw()
                     
                     if(id == MAX_ORGANISMS)
                     {
-                        int value = Grid_Get(j, i)->mat;
+                        int material = Grid_Get(j, i)->mat;
+                        int energy = Grid_Get(j, i)->energy;
                         // Еда - розовый
-                        r = value;
-                        g = value;
-                        b = value;
+                        r = material;
+                        g = 0;
+                        b = energy;
                         if(solid)
                         {
                             r = 255;
@@ -144,19 +142,23 @@ void Grid_Draw()
                     }
                     else if(population[id].alive)
                     {
-                        // Обычный организм - цвет зависит от genome_hash
-                        int value = population[id].has_reproduced;
-                        int lifetime = Grid_Get(j, i)->lifetime;
-                        int life_wave_str = Grid_Get(j, i)->lifetime;
+                        int value = Grid_Get(j, i)->cooldown;
+                        int energy = Grid_Get(j, i)->energy;
                         int flag_0 = population[id].flag_0 * 8;
                         int flag_1 = population[id].flag_1 * 8;
                         int flag_2 = population[id].flag_2 * 8; 
-                        // r = 0;
-                        // g = (255 - value) * lifetime / 255;
-                        // b = value * lifetime / 255;
-                        r = population[id].attack * 255;
-                        g = population[id].fertilized * 255;
-                        b = population[id].has_reproduced * 255;
+                        r = 0;
+                        g = 0;
+                        b = 0;
+                        if(energy != 255)
+                        {
+                            r = energy;
+                            g = 0;
+                            b = 255 - energy;
+                        }
+                        // r = population[id].attack * 255;
+                        // g = population[id].fertilized * 255;
+                        // b = population[id].has_reproduced * 255;
                     }
             
                     rect.x = j * CELL_SIZE;
@@ -165,7 +167,7 @@ void Grid_Draw()
                     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
                     SDL_RenderFillRect(renderer, &rect);
                 }
-                if(flag_0 + flag_1 + flag_2 != 0)
+                if(flag_0 + flag_1 + flag_2 != 0 && 0)
                 {
                     int r = 0, g = 0, b = 0;
                     
@@ -198,8 +200,9 @@ void Organism_Draw()
             rect.x = population[i].nuc_x * CELL_SIZE;
             rect.y = population[i].nuc_y * CELL_SIZE;
             
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            if(population[i].multiply) SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            uint32_t value = population[i].energy * 255 / population[i].max_energy;
+            
+            SDL_SetRenderDrawColor(renderer, value, 0, 255 - value, 255);
             SDL_RenderFillRect(renderer, &rect);
         }
     }

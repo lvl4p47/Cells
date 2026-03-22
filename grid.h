@@ -14,7 +14,7 @@ typedef struct {
     int8_t strength;
     int8_t type;
     uint32_t mat;
-    uint8_t lifetime; 
+    uint32_t energy; 
     uint16_t life_wave_str;
     uint8_t flag_0;
     uint8_t flag_1;
@@ -33,7 +33,8 @@ typedef struct {
     uint8_t target_vol;
     uint8_t alive;
     uint8_t multiply;
-    uint16_t lifetime;
+    uint32_t energy;
+    uint32_t max_energy;
     
     int16_t target_dx;
     int16_t target_dy;
@@ -68,6 +69,7 @@ typedef struct {
     uint8_t move;
     uint8_t take_mat;
     uint8_t attack;
+    uint8_t photosynthesis;
     
     uint8_t flag_0;
     uint8_t flag_1;
@@ -112,8 +114,9 @@ typedef struct {
     uint32_t max_material;          // максимальный материал
     uint32_t asexual_reproductions; // делений за шаг   
     uint32_t sexual_reproductions;  // рождений за шаг
-    uint32_t deaths;                // смертей за шаг
-    uint32_t solidify_count;        // затвердеваний за шаг
+    uint32_t starvation;            // смертей от голода
+    uint32_t overheat;              // смертей от перегрева
+    uint32_t violent;               // насильственных смертей
 } PopulationStats;
 
 typedef struct {
@@ -122,9 +125,12 @@ typedef struct {
     uint32_t predator_count;        // с ATTACK_ON
     uint32_t social_count;          // с pacifism_threshold > 32
     uint32_t builder_count;         // с SOLIDIFY в геноме
+    uint32_t phototroph_count;      // с photosynthesis = 1
+    uint32_t heterotroph_count;     // с photosynthesis = 0
     
     // Ресурсы
-    uint32_t total_food;             // всего еды на поле
+    uint32_t total_free_food;        // всего еды на поле
+    uint32_t total_free_energy;      // всего еды на поле
     uint32_t total_walls;            // всего клеток стен
     uint32_t total_flags;            // всего флагов (сумма flag_0/1/2)
     
@@ -181,6 +187,7 @@ typedef enum
     CHECK_FRIEND_DX,
     CHECK_FRIEND_DY,
     CHECK_MAT,
+    CHECK_NRG,
     CHECK_MULT,
     CHECK_VEL,
     CHECK_VOL,
@@ -217,6 +224,7 @@ typedef enum
     TARGET_HASH_NEG,
     TARGET_HASH_RAND,
     SOLIDIFY,
+    PHOTOSYNTHESIS,
     OP_COUNT
 } OpCode;
 
@@ -240,7 +248,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id);
 void Grid_Set_Food(uint16_t x, uint16_t y);
 void Grid_Update();
 void Grid_Signal(int16_t x, int16_t y, int8_t vx, int8_t vy, int8_t strength);
-void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength);
+void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_nothing);
 void Grid_Add_Cooldown(int16_t x, int16_t y, int8_t cd);
 
 uint16_t Organism_Init(int16_t x, int16_t y);

@@ -40,8 +40,8 @@ void Events_Handle()
             if (e.button.button == SDL_BUTTON_RIGHT) 
             {
                 rmb_held = 1;
-                // Grid_Signal(x, y, 1, 0, 10);
-                Grid_Get(x, y)->flag_0 = 25;
+                Grid_Signal(x, y, 1, 0, 10);
+                // Grid_Get(x, y)->life_wave_str = 10;
             }
             if (e.button.button == SDL_BUTTON_LEFT) 
             {
@@ -80,7 +80,7 @@ void Events_Handle()
 
             if (rmb_held == 1)
             {
-                // Grid_Set(x, y, 0);
+                Grid_Set(x, y, 0);
             }
             if (lmb_held == 1)
             {
