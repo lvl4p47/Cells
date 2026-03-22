@@ -327,19 +327,30 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                     {
                         if(rand() & 1 == 0)
                         {
-                            uint8_t strength = population[id].volume / 20;
+                            uint32_t strength = population[id].volume / 20;
+                            uint32_t mat_taken;
+                            uint32_t energy_taken;
                             if(grid_array[y1][x1].mat > 0) // breaking
                             {
-                                population[id].material += grid_array[y1][x1].mat;
-                                population[id].energy -= 127;
-                                population[id].energy += grid_array[y1][x1].energy;
-                                grid_array[y1][x1].mat = max(grid_array[y1][x1].mat - strength, 0);
+                                mat_taken = min(strength, grid_array[y1][x1].mat);
+                                energy_taken = min(strength, grid_array[y1][x1].energy);
+                                
+                                population[id].material += mat_taken;
+                                grid_array[y1][x1].mat -= mat_taken;
                                 
                                 population[id].vx /= 2;
                                 population[id].vy /= 2;
+                                if(grid_array[y1][x1].energy > 0)
+                                {
+                                    population[id].energy += energy_taken;
+                                    grid_array[y1][x1].energy -= energy_taken;
+                                }
                             }
-                            else // breakthrough
+                            else if(population[id].energy > 127) // breakthrough
                             {
+                                population[id].energy -= 127;
+                                population[id].energy += grid_array[y1][x1].energy; 
+                                
                                 grid_array[y1][x1].solid = 0;
                                 grid_array[y1][x1].mat = 1;
                                 
