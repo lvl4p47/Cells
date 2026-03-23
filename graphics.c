@@ -127,7 +127,7 @@ void Grid_Draw()
                     
                     if(id == MAX_ORGANISMS)
                     {
-                        int material = Grid_Get(j, i)->mat;
+                        int material = Grid_Get(j, i)->material;
                         int energy = Grid_Get(j, i)->energy;
                         // Еда - розовый
                         r = material;
@@ -153,7 +153,7 @@ void Grid_Draw()
                         if(energy != 255)
                         {
                             r = energy;
-                            g = 0;
+                            g = 127;
                             b = 255 - energy;
                         }
                         // r = population[id].attack * 255;
@@ -230,7 +230,7 @@ void Save_Screenshot(const char* filename, int mode)
                 {
                     if (cell->solid)
                     {
-                        int value = max(cell->mat, 127);
+                        int value = max(cell->material, 127);
                         color = SDL_MapRGB(surface->format, 0, 0, value);
                     }
                     else
@@ -256,13 +256,13 @@ void Save_Screenshot(const char* filename, int mode)
                         int r = 0, g = 0, b = 0;
                         
                         if (id == MAX_ORGANISMS) {
-                            int value = cell->mat;
+                            int value = cell->material;
                             r = value;
                             g = 0;
                             b = value;
                         }
                         else if (population[id].alive) {
-                            int material = cell->mat;
+                            int material = cell->material;
                             r = 0;
                             g = material;
                             b = 0;

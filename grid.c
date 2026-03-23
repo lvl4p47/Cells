@@ -15,9 +15,9 @@ uint8_t timer = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
-uint8_t food_mat = 100;
-uint16_t min_mat = 100;
-uint8_t food_mult = 3;
+uint8_t food_mat = 10;
+uint16_t min_mat = 400;
+uint8_t food_mult = 0;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
 uint16_t starting_energy = 128;
@@ -26,6 +26,7 @@ uint8_t debug = 0;
 uint8_t base_mutate_chance = 10;
 uint8_t max_energy_mult = 127;
 uint8_t repopulate = 1;
+uint8_t statistics = 1;
 
 // Статистика
 static uint32_t step_counter = 0;
@@ -133,7 +134,7 @@ void Grid_Quit()
 
 void Grid_Reset(uint16_t value)
 {
-    // if(debug) fprintf(stderr, "\nGrid_Reset");
+    if(debug) fprintf(stderr, "\nGrid_Reset"), fflush(stderr);
     for(int i = 0; i < grid_height; i++)
     {
         for(int j = 0; j < grid_width; j++)
@@ -154,7 +155,7 @@ void Grid_Reset(uint16_t value)
 
 void Grid_Set(int16_t x, int16_t y, uint16_t id)
 {
-    // if(debug) fprintf(stderr, "\nGrid_Set");
+    if(debug) fprintf(stderr, "\nGrid_Set"), fflush(stderr);
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
     uint16_t temp_id = grid_array[y1][x1].id;
@@ -171,7 +172,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].vy = 0;
                 grid_array[y1][x1].strength = 0;
                 grid_array[y1][x1].type = 0;
-                grid_array[y1][x1].mat = 0;
+                grid_array[y1][x1].material = 0;
                 grid_array[y1][x1].cooldown = 0;
                 grid_array[y1][x1].energy = 0;
                 grid_array[y1][x1].life_wave_str = 0;
@@ -184,7 +185,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
             else if(population[temp_id].volume > 0)
             {
                 population[temp_id].volume--;
-                population[temp_id].material += grid_array[y1][x1].mat;
+                population[temp_id].material += grid_array[y1][x1].material;
                 population[temp_id].energy += grid_array[y1][x1].energy;
                 
                 grid_array[y1][x1].id = 0;
@@ -192,7 +193,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].vy = 0;
                 grid_array[y1][x1].strength = 0;
                 grid_array[y1][x1].type = 0;
-                grid_array[y1][x1].mat = 0;
+                grid_array[y1][x1].material = 0;
                 grid_array[y1][x1].cooldown = 0;
                 grid_array[y1][x1].energy = 0;
                 grid_array[y1][x1].life_wave_str = 0;
@@ -217,7 +218,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 //     Organism_Quit(temp_id);
                 // }
             }
-            else if(grid_array[y1][x1].mat != 0)
+            else if(grid_array[y1][x1].material != 0)
             {
                 printf("weird1 id: %4d alive: %d energy: %d\n", 
                 grid_array[y1][x1].id, 
@@ -229,21 +230,21 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].vy = 0;
                 grid_array[y1][x1].strength = 0;
                 grid_array[y1][x1].type = 0;
-                grid_array[y1][x1].mat = 0;
+                grid_array[y1][x1].material = 0;
                 grid_array[y1][x1].cooldown = 0;
                 grid_array[y1][x1].energy = 0;
                 grid_array[y1][x1].life_wave_str = 0;
                 grid_array[y1][x1].solid = 0;
             }
         }
-        else if(grid_array[y1][x1].mat != 0)
+        else if(grid_array[y1][x1].material != 0)
         {
             grid_array[y1][x1].id = 0;
             grid_array[y1][x1].vx = 0;
             grid_array[y1][x1].vy = 0;
             grid_array[y1][x1].strength = 0;
             grid_array[y1][x1].type = 0;
-            grid_array[y1][x1].mat = 0;
+            grid_array[y1][x1].material = 0;
             grid_array[y1][x1].cooldown = 0;
             grid_array[y1][x1].energy = 0;
             grid_array[y1][x1].life_wave_str = 0;
@@ -288,7 +289,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].vy = 0;
                 grid_array[y1][x1].strength = 0;
                 grid_array[y1][x1].type = 2;  // Все новые клетки - тело (type=2)
-                grid_array[y1][x1].mat = 1;
+                grid_array[y1][x1].material = 1;
                 grid_array[y1][x1].cooldown = 0;
                 grid_array[y1][x1].energy = 127;
                 grid_array[y1][x1].life_wave_str = 0;
@@ -306,17 +307,17 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                     
                     if(grid_array[y1][x1].solid == 0)
                     {
-                        population[id].material += grid_array[y1][x1].mat - 1;
+                        population[id].material += grid_array[y1][x1].material - 1;
                         population[id].energy -= 127;
                         population[id].energy += grid_array[y1][x1].energy;
-                        grid_array[y1][x1].mat = 1;
+                        grid_array[y1][x1].material = 1;
                         
                         grid_array[y1][x1].id = id;
                         grid_array[y1][x1].vx = 0;
                         grid_array[y1][x1].vy = 0;
                         grid_array[y1][x1].strength = 0;
                         grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
-                        grid_array[y1][x1].mat = 1;
+                        grid_array[y1][x1].material = 1;
                         grid_array[y1][x1].cooldown = 0;
                         grid_array[y1][x1].energy = 127;
                         grid_array[y1][x1].life_wave_str = 0;
@@ -325,34 +326,40 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                     }
                     else 
                     {
-                        if(rand() & 1 == 0)
                         {
-                            uint32_t strength = population[id].volume / 20;
+                            uint32_t strength = population[id].energy;
                             uint32_t mat_taken;
                             uint32_t energy_taken;
-                            if(grid_array[y1][x1].mat > 0) // breaking
+                            if(grid_array[y1][x1].material > 0) // breaking
                             {
-                                mat_taken = min(strength, grid_array[y1][x1].mat);
+                                // printf("breaking\n");
+                                mat_taken = min(strength, grid_array[y1][x1].material);
                                 energy_taken = min(strength, grid_array[y1][x1].energy);
                                 
-                                population[id].material += mat_taken;
-                                grid_array[y1][x1].mat -= mat_taken;
+                                if(grid_array[y1][x1].material >= mat_taken)
+                                {
+                                    population[id].material += mat_taken;
+                                    grid_array[y1][x1].material -= mat_taken;
+                                }
                                 
                                 population[id].vx /= 2;
                                 population[id].vy /= 2;
-                                if(grid_array[y1][x1].energy > 0)
+                                
+                                if(grid_array[y1][x1].energy >= energy_taken)
                                 {
-                                    population[id].energy += energy_taken;
+                                    population[id].energy -= energy_taken;
                                     grid_array[y1][x1].energy -= energy_taken;
                                 }
                             }
-                            else if(population[id].energy > 127) // breakthrough
+                            else if(population[id].material > 0 && population[id].energy > 127) // breakthrough
                             {
+                                // printf("breakthrough\n");
                                 population[id].energy -= 127;
-                                population[id].energy += grid_array[y1][x1].energy; 
+                                population[id].energy -= grid_array[y1][x1].energy; 
+                                population[id].material -= 1; 
                                 
                                 grid_array[y1][x1].solid = 0;
-                                grid_array[y1][x1].mat = 1;
+                                grid_array[y1][x1].material = 1;
                                 
                                 grid_array[y1][x1].id = id;
                                 grid_array[y1][x1].vx = 0;
@@ -378,10 +385,10 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                     if(grid_array[y1][x1].type == 2)  // Тело
                     {
                         // printf("body attack");
-                        population[id].material += grid_array[y1][x1].mat - 1;
+                        population[id].material += grid_array[y1][x1].material - 1;
                         population[id].energy -= 127;
                         population[id].energy += grid_array[y1][x1].energy;
-                        grid_array[y1][x1].mat = 1;
+                        grid_array[y1][x1].material = 1;
                         
                         if(population[temp_id].volume > 0)
                             population[temp_id].volume--;
@@ -399,11 +406,11 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                         // Атака ядра дает больше ресурсов
                         population[id].material += population[temp_id].material / recycle_div;
                         population[temp_id].material = 0;
-                        population[id].material += grid_array[y1][x1].mat - 1;
+                        population[id].material += grid_array[y1][x1].material - 1;
                         population[id].energy -= 127;
                         population[id].energy += grid_array[y1][x1].energy;
                         population[id].energy += population[temp_id].energy;
-                        grid_array[y1][x1].mat = 1;
+                        grid_array[y1][x1].material = 1;
                         
                         if(population[temp_id].volume > 0)
                             population[temp_id].volume--;
@@ -433,7 +440,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                     grid_array[y1][x1].vy = 0;
                     grid_array[y1][x1].strength = 0;
                     grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
-                    grid_array[y1][x1].mat = 1;
+                    grid_array[y1][x1].material = 1;
                     grid_array[y1][x1].cooldown = 0;
                     grid_array[y1][x1].energy = 127;
                     grid_array[y1][x1].life_wave_str = 0;
@@ -447,7 +454,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
 
 void Grid_Set_Food(uint16_t x, uint16_t y)
 {
-    // if(debug) fprintf(stderr, "\nGrid_Set_Food");
+    if(debug) fprintf(stderr, "\nGrid_Set_Food"), fflush(stderr);
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
     
@@ -457,7 +464,7 @@ void Grid_Set_Food(uint16_t x, uint16_t y)
     grid_array[y1][x1].vy = 0;
     grid_array[y1][x1].strength = 0;
     grid_array[y1][x1].type = 1;
-    grid_array[y1][x1].mat = food_mat;
+    grid_array[y1][x1].material = food_mat;
     grid_array[y1][x1].energy = 0;
     grid_array[y1][x1].cooldown = 0;
     grid_array[y1][x1].solid = 0;
@@ -465,26 +472,11 @@ void Grid_Set_Food(uint16_t x, uint16_t y)
     population[MAX_ORGANISMS].volume = 0;
 }
 
-void Grid_Update()
+uint32_t Check_Conservation()
 {
-    // if(debug) 
-    // {
-    //     freopen("debug.log", "w", stderr);
-    //     fprintf(stderr, "\nGrid_Update");
-    // }
-    
-    step_counter++;
-    
-    total_mat = 0;
-    uint32_t org_mat = 0, grid_mat = 0, vol_mat = 0, volume = 0;
-    uint8_t membrane = 0;
+    if(debug == 0) return 0;
+    uint32_t org_mat = 0, grid_mat = 0, vol_mat = 0;
     uint16_t id;
-    
-    uint32_t leftover_material;
-    uint32_t cells;
-    uint32_t material_per_cell;
-    
-    Order_Shuffle();
     
     total_mat = 0, alive = 0;
     org_mat = 0, grid_mat = 0, vol_mat = 0;
@@ -494,7 +486,7 @@ void Grid_Update()
         {
             id = Grid_Get(j, i)->id;
             if(population[id].volume > 0 || id == MAX_ORGANISMS)
-                grid_mat += grid_array[i][j].mat;
+                grid_mat += grid_array[i][j].material;
         }
     }
     
@@ -508,20 +500,48 @@ void Grid_Update()
     }
     total_mat = org_mat + grid_mat;
     
-    // printf("before vol_mat: %5d org_mat: %5d grid_mat: %5d total_mat: %5d\n", vol_mat, org_mat, grid_mat, total_mat);
+    printf("before vol_mat: %5d org_mat: %5d grid_mat: %5d total_mat: %5d\n", vol_mat, org_mat, grid_mat, total_mat);
     
-    // if(total_mat % 10 != 0)
-    // {
-    //     printf("%d", 1 / 0);
-    // }    
+    if(total_mat % min_mat)
+    {
+        printf("%d", 1 / 0);
+    }
+    
+    return total_mat;
+}
+
+void Grid_Update()
+{
+    Check_Conservation();
+    
+    if(debug) 
+    {
+        freopen("debug.log", "w", stderr);
+        fprintf(stderr, "\nGrid_Update"), fflush(stderr);
+    }
+    
+    step_counter++;
+    
+    uint32_t volume = 0;
+    uint8_t membrane = 0;
+    uint16_t id;
+    
+    uint32_t leftover_material;
+    uint32_t cells;
+    uint32_t material_per_cell;
+    
+    // Order_Shuffle();  
+    
     int32_t total_change = 0;
     int32_t max_increase = population[id].max_energy - population[id].energy;
     int32_t max_decrease = -population[id].energy;
     
+    Cell *cell, *neighbor;
+    
     uint16_t id1;
-    for(int id0 = 1; id0 < MAX_ORGANISMS; id0++)
+    for(int alive_stack = free_top + 1; alive_stack < MAX_ORGANISMS - 1; alive_stack++)
     {
-        id1 = order[id0];
+        id1 = free_stack[alive_stack];
         volume = 0;
         if(population[id1].alive)
         {
@@ -543,26 +563,30 @@ void Grid_Update()
             {
                 for(int j = min_x; j <= max_x; j++)
                 {
-                    energy = Grid_Get(j, i)->energy;
-                    if(Grid_Get(j, i)->id == id1 && (energy != 0 && energy != 255))
+                    cell = Grid_Get(j, i);
+                    energy = cell->energy;
+                    if(cell->id == id1 && (energy != 0 && energy < 255))
                     {
                         // printf("first ");
                         // printf("%*d %*d %*d\n", 3, j, 3, i, 4, population[id1].energy);
                         if(population[id1].photosynthesis)
-                            Grid_Get(j, i)->energy = min(energy + 1, 255);
+                            cell->energy = min(energy + 1, 255);
                         else
-                            Grid_Get(j, i)->energy = max(energy - 1, 0);
+                            cell->energy = max(energy - 1, 0);
                         
                         // printf("%d\n", Grid_Get(j, i)->energy );
                         
-                        if(j < new_min_x) new_min_x = j;
-                        if(j > new_max_x) new_max_x = j;
-                        if(i < new_min_y) new_min_y = i;
-                        if(i > new_max_y) new_max_y = i;
-                        
                         membrane = Is_Membrane(j, i);
                         
-                        if(membrane) Process_Membrane(j, i);
+                        if(membrane) 
+                        {
+                            Process_Membrane(j, i);
+                            
+                            if(j < new_min_x) new_min_x = j;
+                            if(j > new_max_x) new_max_x = j;
+                            if(i < new_min_y) new_min_y = i;
+                            if(i > new_max_y) new_max_y = i;
+                        }
                         
                         if(membrane && population[id1].take_mat)
                         {
@@ -570,7 +594,8 @@ void Grid_Update()
                             {
                                 for(int dx = -1; dx < 2; dx++)
                                 {
-                                    id = Grid_Get(j + dx, i + dy)->id;
+                                    neighbor = Grid_Get(j + dx, i + dy);
+                                    id = neighbor->id;
                                     
                                     int dist = max(abs((j + dx) - population[id1].nuc_x), abs((i + dy) - population[id1].nuc_y));
                                     if (rand() % (dist + 1) == 0) 
@@ -581,28 +606,23 @@ void Grid_Update()
                                         {
                                             population[id].material--;
                                             population[id1].material++;
-                                            
-                                            if(population[id].material == 0)
-                                            {
-                                                // Organism_Quit(id);
-                                            }
                                         }
                                     }
                                 }
                             }
                         }
                         
-                        int16_t life_wave_str = Grid_Get(j, i)->life_wave_str;
+                        int16_t life_wave_str = cell->life_wave_str;
                                 
                         if(life_wave_str != 0
-                        && Grid_Get(j, i)->cooldown == 0)
+                        && cell->cooldown == 0)
                         {
-                            total_change = Grid_Get(j, i)->energy - 127;
+                            total_change = cell->energy - 127;
                         }
                         
-                        if(Grid_Get(j, i)->strength != 0)
+                        if(cell->strength != 0)
                         {
-                            if(Grid_Get(j, i)->strength > 0)
+                            if(cell->strength > 0)
                             {
                                 if(j - 1 < new_min_x) new_min_x = j - 1;
                                 if(j + 1 > new_max_x) new_max_x = j + 1;
@@ -610,17 +630,15 @@ void Grid_Update()
                                 if(i + 1 > new_max_y) new_max_y = i + 1;
                             }
                             if(membrane
-                            && Grid_Get(j, i)->cooldown == 0)
+                            && cell->cooldown == 0)
                             {
-                                Expand(j, i, Grid_Get(j, i)->strength);
+                                Expand(j, i, cell->strength);
                             }
                         }
                     }
-                    else if(Grid_Get(j, i)->id == id1 &&
-                    (energy == 0 || energy >= 255))
+                    else if(cell->id == id1)
                     {
-                        
-                        uint16_t id = Grid_Get(j, i)->id;
+                        uint16_t id = cell->id;
                         
                         leftover_material = population[id].material;
                         cells = population[id].volume;
@@ -630,10 +648,10 @@ void Grid_Update()
                         {
                             material_per_cell = leftover_material / cells;
                             
-                            Grid_Get(j, i)->id = MAX_ORGANISMS;
+                            cell->id = MAX_ORGANISMS;
                             if(population[id].material >= material_per_cell)
                             {
-                                Grid_Get(j, i)->mat += material_per_cell;
+                                cell->material += material_per_cell;
                                 population[id].material -= material_per_cell;
                             }
                         }
@@ -664,21 +682,32 @@ void Grid_Update()
                 {
                     for(int j = min_x; j <= max_x; j++)
                     {
-                        energy = Grid_Get(j, i)->energy;
-                        if(Grid_Get(j, i)->id == id1)
+                        cell = Grid_Get(j, i);
+                        energy = cell->energy;
+                        if(cell->id == id1)
                         {
-                            if(Grid_Get(j, i)->cooldown > 0)
+                            membrane = Is_Membrane(j, i);
+                            if(membrane && cell->cooldown > 0)
                             {
-                                Grid_Get(j, i)->cooldown = max(Grid_Get(j, i)->cooldown - 1, 0);
+                                int16_t life_wave_str = cell->life_wave_str;
+                                
+                                if(life_wave_str != 0)
+                                {
+                                    Grid_Life_Wave(j, i, life_wave_str, all_or_nothing);
+                                }
+                            }
+                            if(cell->cooldown > 0)
+                            {
+                                cell->cooldown = max(cell->cooldown - 1, 0);
                             } 
                             else if(energy != 0 && energy != 255)
                             {
-                                if(Grid_Get(j, i)->strength != 0)
+                                if(cell->strength != 0)
                                 {
                                     // printf("second\n");
-                                    int8_t strength = Grid_Get(j, i)->strength;
-                                    int8_t vx = Grid_Get(j, i)->vx;
-                                    int8_t vy = Grid_Get(j, i)->vy;
+                                    int8_t strength = cell->strength;
+                                    int8_t vx = cell->vx;
+                                    int8_t vy = cell->vy;
                                     uint8_t ax = abs(vx);
                                     uint8_t ay = abs(vy);
                                     int8_t sx = sign(vx);
@@ -711,7 +740,7 @@ void Grid_Update()
                                     }
                                     Grid_Signal(j, i, 0, 0, 0);
                                 }
-                                int16_t life_wave_str = Grid_Get(j, i)->life_wave_str;
+                                int16_t life_wave_str = cell->life_wave_str;
                                 
                                 if(life_wave_str != 0)
                                 {
@@ -741,7 +770,7 @@ void Grid_Update()
 
 void Grid_Signal(int16_t x, int16_t y, int8_t vx, int8_t vy, int8_t strength)
 {
-    // if(debug) fprintf(stderr, "\nGrid_Signal");
+    if(debug) fprintf(stderr, "\nGrid_Signal"), fflush(stderr);
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
     
@@ -757,7 +786,7 @@ void Grid_Signal(int16_t x, int16_t y, int8_t vx, int8_t vy, int8_t strength)
 
 void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_nothing)
 {
-    // if(debug) fprintf(stderr, "\nGrid_Life_Wave");
+    if(debug) fprintf(stderr, "\nGrid_Life_Wave"), fflush(stderr);
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
     uint16_t id = grid_array[y1][x1].id;
@@ -829,23 +858,27 @@ void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_noth
 
 void Grid_Add_Cooldown(int16_t x, int16_t y, int8_t cd)
 {
-    // if(debug) fprintf(stderr, "\nGrid_Add_Cooldown");
+    if(debug) fprintf(stderr, "\nGrid_Add_Cooldown"), fflush(stderr);
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
     
     grid_array[y1][x1].cooldown += cd;
 }
 
-uint16_t Organism_Init(int16_t x, int16_t y)
+uint16_t Organism_Init(int16_t x, int16_t y, uint32_t material, uint32_t energy)
 {
-    // if(debug) fprintf(stderr, "\nOrganism_Init");
+    if(debug) fprintf(stderr, "\nOrganism_Init"), fflush(stderr);
     if (free_top < 0) {
+        printf("no free ids\n");
         return 0; // Стек пуст, свободных мест нет
+    }
+    if(material == 0 || energy < 128)
+    {
+        return 0;
     }
     
     // Забираем ID с вершины и опускаем указатель    
     uint16_t id = free_stack[free_top];
-    free_stack[free_top] = 0;
     free_top--;
 
     // printf("id: %d\n", id);
@@ -856,18 +889,21 @@ uint16_t Organism_Init(int16_t x, int16_t y)
     
     population[id].nuc_x = x1;
     population[id].nuc_y = y1;
-    population[id].material = min_mat;
+    population[id].material = material;
     population[id].min_mat = min_mat;
     population[id].volume = 0;
     population[id].target_vol = 50;
     population[id].alive = 1;
     population[id].multiply = 0;
-    population[id].energy = starting_energy;
+    population[id].energy = energy;
     population[id].max_energy = max_energy_mult * 1 + starting_energy;
     
     population[id].target_dx = 0;
     population[id].target_dy = 0;
     population[id].target_str = 0;
+    population[id].energy_dx = 0;
+    population[id].energy_dy = 0;
+    population[id].energy_str = 0;
     population[id].other_dx = 0;
     population[id].other_dy = 0;
     population[id].other_str = 0;
@@ -950,12 +986,14 @@ uint16_t Organism_Init(int16_t x, int16_t y)
     Grid_Get(x1, y1)->type = 1;
     // printf("id: %d volume: %d", id, population[id].volume);
     
+    
+    
     return id;
 }
 
 void Genome_Init(uint16_t id, uint8_t test)
 {
-    // if(debug) fprintf(stderr, "\nGenome_Init");
+    if(debug) fprintf(stderr, "\nGenome_Init"), fflush(stderr);
     char buf[32];
     if(test)
     {
@@ -1020,7 +1058,7 @@ void Genome_Init(uint16_t id, uint8_t test)
 
 void Genome_Hash(uint16_t id)
 {
-    // if(debug) fprintf(stderr, "\nGenome_Hash");
+    if(debug) fprintf(stderr, "\nGenome_Hash"), fflush(stderr);
     uint16_t hash = 0;
     for (int i = 0; i < GENOME_SIZE; i++) {
         hash += population[id].genome[i] * (GENOME_SIZE - i);
@@ -1031,7 +1069,7 @@ void Genome_Hash(uint16_t id)
 
 void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 {
-    // if(debug) fprintf(stderr, "\nGenome_Copy");
+    if(debug) fprintf(stderr, "\nGenome_Copy"), fflush(stderr);
     srand(clock());
     for(int i = 0; i < GENOME_SIZE; i++)
     {
@@ -1077,7 +1115,7 @@ void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 
 void Child_Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 {
-    // if(debug) fprintf(stderr, "\nChild_Genome_Copy");
+    if(debug) fprintf(stderr, "\nChild_Genome_Copy"), fflush(stderr);
     srand(clock());
     for(int i = 0; i < GENOME_SIZE; i++)
     {
@@ -1117,7 +1155,7 @@ void Child_Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 
 void Mutate_Swap_Blocks(uint16_t id)
 {
-    // if(debug) fprintf(stderr, "\nMutate_Swap_Blocks");
+    if(debug) fprintf(stderr, "\nMutate_Swap_Blocks"), fflush(stderr);
     uint8_t len = 2 + rand() % GENOME_SIZE / 32;
     uint8_t pos1 = rand() % (GENOME_SIZE - len);
     uint8_t pos2 = rand() % (GENOME_SIZE - len);
@@ -1130,7 +1168,7 @@ void Mutate_Swap_Blocks(uint16_t id)
 
 void Best_Genome_Spread()
 {
-    // if(debug) fprintf(stderr, "\nBest_Genome_Spread");
+    if(debug) fprintf(stderr, "\nBest_Genome_Spread"), fflush(stderr);
     // printf("best_genome_spread\n");
     uint16_t current_org = 0;
     uint16_t current_ord = 0;
@@ -1174,7 +1212,7 @@ void Child_Genome_Combine(uint16_t id1, uint16_t id2)
 
 uint8_t Organism_Quit(uint16_t id)
 {
-    // if(debug) fprintf(stderr, "\nOrganism_Quit");
+    if(debug) fprintf(stderr, "\nOrganism_Quit"), fflush(stderr);
     // printf("organism_quit\n");
     if (id == 0 || id >= MAX_ORGANISMS) return 0;
     if (population[id].alive == 0) return 0;
@@ -1205,7 +1243,7 @@ uint8_t Organism_Quit(uint16_t id)
                     if(population[id].material >= material_per_cell 
                     && population[id].energy >= energy_per_cell)
                     {
-                        Grid_Get(j, i)->mat += material_per_cell;
+                        Grid_Get(j, i)->material += material_per_cell;
                         population[id].material -= material_per_cell;
                         
                         Grid_Get(j, i)->energy += energy_per_cell;
@@ -1220,13 +1258,13 @@ uint8_t Organism_Quit(uint16_t id)
         
         if(nucleus->id != 0)
         {
-            nucleus->mat += population[id].material;
+            nucleus->material += population[id].material;
             nucleus->energy += population[id].energy;
         }
         else 
         {
             Grid_Set(population[id].nuc_x, population[id].nuc_y, MAX_ORGANISMS);
-            nucleus->mat += population[id].material;
+            nucleus->material += population[id].material;
             nucleus->energy += population[id].energy;
         }
         population[id].material = 0;
@@ -1242,14 +1280,14 @@ uint8_t Organism_Quit(uint16_t id)
         if(Grid_Get(population[id].nuc_x, population[id].nuc_y)->id != 0)
         {
             // printf("1");
-            Grid_Get(population[id].nuc_x, population[id].nuc_y)->mat += population[id].material;
+            Grid_Get(population[id].nuc_x, population[id].nuc_y)->material += population[id].material;
             Grid_Get(population[id].nuc_x, population[id].nuc_y)->energy += population[id].energy;
         }
         else 
         {
             // printf("2");
             Grid_Set(population[id].nuc_x, population[id].nuc_y, MAX_ORGANISMS);
-            Grid_Get(population[id].nuc_x, population[id].nuc_y)->mat += population[id].material;
+            Grid_Get(population[id].nuc_x, population[id].nuc_y)->material += population[id].material;
             Grid_Get(population[id].nuc_x, population[id].nuc_y)->energy += population[id].energy;
         }
         population[id].material = 0;
@@ -1277,7 +1315,14 @@ uint8_t Organism_Quit(uint16_t id)
     Cell* nuc = Grid_Get(population[id].nuc_x, population[id].nuc_y);
     if (nuc->id == id) {
         nuc->id = MAX_ORGANISMS;
-        // mat остаётся
+        // material остаётся
+    }
+    
+    // Adjust free_stack
+    uint16_t moving_id = free_stack[free_top + 1];
+    for(int i = free_top + 1; i < MAX_ORGANISMS - 1; i++)
+    {
+        if(free_stack[i] == id) free_stack[i] = moving_id;
     }
     
     // Поднимаем указатель и кладем ID обратно в стек
@@ -1303,6 +1348,9 @@ uint8_t Organism_Quit(uint16_t id)
     population[id].target_dx = 0;
     population[id].target_dy = 0;
     population[id].target_str = 0;
+    population[id].energy_dx = 0;
+    population[id].energy_dy = 0;
+    population[id].energy_str = 0;
     population[id].other_dx = 0;
     population[id].other_dy = 0;
     population[id].other_str = 0;
@@ -1349,7 +1397,7 @@ uint8_t Organism_Quit(uint16_t id)
 
 uint16_t Is_Membrane(int16_t x, int16_t y)
 {
-    if(debug > 1) fprintf(stderr, "\nIs_Membrane");
+    if(debug > 1) fprintf(stderr, "\nIs_Membrane"), fflush(stderr);
     uint16_t id = Grid_Get(x, y)->id;
     uint16_t id1;
     uint16_t counter = 0;
@@ -1378,6 +1426,7 @@ void Process_Membrane(int16_t x, int16_t y)
     uint16_t counter = 0;
     uint16_t other = 0;
     uint16_t target = 0;
+    uint16_t energy = 0;
     uint16_t free = 0;
     uint16_t free_dist = 65535;
     uint16_t friends = 0;
@@ -1449,10 +1498,8 @@ void Process_Membrane(int16_t x, int16_t y)
                 counter++;
                 if(id1 == MAX_ORGANISMS || population[id1].alive == 0) 
                 {
-                    if(cell->solid)
-                        target += 1;
-                    else
-                        target += cell->mat;
+                    target += cell->material;
+                    energy += cell->energy;
                 }
                 else if(id1 != 0)
                 {
@@ -1512,6 +1559,12 @@ void Process_Membrane(int16_t x, int16_t y)
             population[id].target_str = target;
             population[id].target_dx = dx_to_nuc;
             population[id].target_dy = dy_to_nuc;
+        }
+        if(energy > population[id].energy_str)
+        {
+            population[id].energy_str = energy;
+            population[id].energy_dx = dx_to_nuc;
+            population[id].energy_dy = dy_to_nuc;
         }
         if(free > 0)
         {
@@ -1606,7 +1659,8 @@ void Process_Membrane(int16_t x, int16_t y)
         
         if(partner_id != 0 && id == population[partner_id].partner_id
          && population[id].sex == 0
-         && population[id].solidify == 0 && population[partner_id].solidify == 0)
+         && population[id].solidify == 0 && population[partner_id].solidify == 0
+         && population[partner_id].fertilized == 0)
         {
             Child_Genome_Combine(partner_id, id);
             population[id].fertilized = 1;
@@ -1620,7 +1674,7 @@ void Process_Membrane(int16_t x, int16_t y)
 
 uint16_t Id_Count(int16_t x, int16_t y, uint16_t id)
 {
-    // if(debug) fprintf(stderr, "\nId_Count");
+    if(debug) fprintf(stderr, "\nId_Count"), fflush(stderr);
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
     uint8_t counter = 0;
@@ -1640,7 +1694,7 @@ uint16_t Id_Count(int16_t x, int16_t y, uint16_t id)
 
 uint8_t Expand(int16_t x, int16_t y, int8_t strength)
 {
-    // if(debug) fprintf(stderr, "\nExpand");
+    if(debug) fprintf(stderr, "\nExpand"), fflush(stderr);
     uint16_t id = Grid_Get(x, y)->id;
     uint16_t id_to = Grid_Get(x, y)->id;
     uint16_t x1 = mod(x, grid_width);
@@ -1759,11 +1813,14 @@ uint8_t Expand(int16_t x, int16_t y, int8_t strength)
 
 void Organism_Update()
 {
-    // if(debug) fprintf(stderr, "\nOrganism_Update");
-    for(int id = 0; id < MAX_ORGANISMS; id++)
+    if(debug) fprintf(stderr, "\nOrganism_Update"), fflush(stderr);
+    
+    Cell *cell;
+    
+    for(int alive = free_top + 1; alive < MAX_ORGANISMS - 1; alive++)
     {
-        uint16_t i = order[id];
-        if(population[i].alive)
+        uint16_t i = free_stack[alive];
+        // if(population[i].alive)
         {
             population[i].nuc_x = mod(population[i].nuc_x, grid_width);
             population[i].nuc_y = mod(population[i].nuc_y, grid_height);
@@ -1771,7 +1828,9 @@ void Organism_Update()
             uint16_t y = population[i].nuc_y;
             population[i].newborn = 0;
             
-            if(Grid_Get(x, y)->id != i || Grid_Get(x, y)->id == 0)
+            cell = Grid_Get(x, y);
+            
+            if(cell->id != i || cell->id == 0)
             {
                 // printf("death\n");
                 if(Organism_Quit(i) == 1)
@@ -1787,7 +1846,7 @@ void Organism_Update()
             //     printf("low energy\n");
             // }
             
-            grid_array[y][x].type = 2;
+            cell->type = 2;
             
             uint16_t flag, flag_str = 16;
             uint32_t step;
@@ -1964,7 +2023,7 @@ void Organism_Update()
                 {
                     dp = 5;
                 }
-                if(print) printf("\n CHECK_TARGET_DX ");
+                if(print) printf("\n CHECK_OTHER_DX ");
                 break;
             case CHECK_OTHER_DY:
                 if (population[i].other_str == 0) 
@@ -1980,7 +2039,7 @@ void Organism_Update()
                 {
                     dp = 5;
                 }
-                if(print) printf("\n CHECK_TARGET_DY ");
+                if(print) printf("\n CHECK_OTHER_DY ");
                 break;
             case CHECK_TARGET_DX:
                 if (population[i].target_str == 0) 
@@ -2013,6 +2072,38 @@ void Organism_Update()
                     dp = 5;
                 }
                 if(print) printf("\n CHECK_TARGET_DY ");
+                break;
+            case CHECK_ENERGY_DX:
+                if (population[i].energy_str == 0) 
+                {
+                    dp = 5;
+                } else if (population[i].energy_dx > 0)
+                {
+                    dp = 3;
+                } else if (population[i].energy_dx < 0)
+                {
+                    dp = 1;
+                } else
+                {
+                    dp = 5;
+                }
+                if(print) printf("\n CHECK_ENERGY_DX ");
+                break;
+            case CHECK_ENERGY_DY:
+                if (population[i].energy_str == 0) 
+                {
+                    dp = 5;
+                } else if (population[i].energy_dy > 0)
+                {
+                    dp = 3;
+                } else if (population[i].energy_dy < 0)
+                {
+                    dp = 1;
+                } else
+                {
+                    dp = 5;
+                }
+                if(print) printf("\n CHECK_ENERGY_DY ");
                 break;
             case CHECK_PAIN_DX:
                 if (population[i].pain_str == 0) 
@@ -2460,8 +2551,8 @@ void Organism_Update()
             
             if(population[i].photosynthesis) 
             {
-                shrink = 0;
-                population[i].shrink = 0;
+                move = 0;
+                population[i].move = 0;
             }
             
             // ВЕРОЯТНОСТЬ движения (скорость 127 = 100%, 64 = 50%, 32 = 25%, и т.д.)
@@ -2535,13 +2626,14 @@ void Organism_Update()
                 int x = population[i].nuc_x + deltax;
                 int y = population[i].nuc_y + deltay;
                 
-                if(Grid_Get(x, y)->id == i)
+                cell = Grid_Get(x, y);
+                
+                if(cell->id == i)
                 {
+                    uint32_t half_material = floor(population[i].material / 2);
+                    uint32_t half_energy = floor(population[i].energy / 2);
                     
-                    uint32_t half_material = population[i].material / 2;
-                    uint32_t half_energy = population[i].material / 2;
-                    
-                    if(half_material > 0, half_energy > 0)
+                    if(half_material > 0 &&  half_energy > 127)
                     {
                         population[i].material -= half_material;
                         population[i].energy -= half_energy;
@@ -2549,16 +2641,17 @@ void Organism_Update()
                         Grid_Set(x, y, 0);
                         
                         uint16_t child_id = 0;
-                        child_id = Organism_Init(x, y);
+                        child_id = Organism_Init(x, y, half_material, half_energy);
                         
                         if(child_id != 0) {
                             Child_Genome_Copy(i, child_id, population[i].mutate_chance);
                             population[i].multiply = 0;
-                            // if(population[i].has_reproduced == 0)
-                                // population[i].energy = energy;
-                            // printf("multiply success mat: %d\n", population[child_id].material);
+                            // printf("multiply success material: %d\n", population[child_id].material);
                             if(population[i].fertilized)
+                            {
                                 sexual_reproductions++;
+                                // printf("mother: %d father: %d\n", i, population[i].partner_id);
+                            }
                             else
                                 asexual_reproductions++;
                         } else {
@@ -2579,6 +2672,12 @@ void Organism_Update()
             {
                 population[i].target_dx = 0;
                 population[i].target_dy = 0;
+            }
+            population[i].energy_str = max(population[i].energy_str - 1, 0);
+            if(population[i].energy_str == 0)
+            {
+                population[i].energy_dx = 0;
+                population[i].energy_dy = 0;
             }
             population[i].other_str = max(population[i].other_str - 1, 0);
             if(population[i].other_str == 0)
@@ -2654,18 +2753,19 @@ void Organism_Update()
             
             // АВТОМАТИЧЕСКАЯ ВОЛНА ЖИЗНИ (каждые N шагов)
             population[i].life_wave_timer++;
-            if(population[i].life_wave_timer >= 63)
+            if(population[i].life_wave_timer >= 94)
             {
                 // printf("life wave\n");
                 population[i].life_wave_timer = 0;
                 
-                grid_array[y][x].life_wave_str = max(
+                cell->life_wave_str = max(
                 population[i].max_x - population[i].min_x + 
                 population[i].max_y - population[i].min_y, 1);
             }
         }
     }
-    if(free_top >= MAX_ORGANISMS * (re_frac - 1) / re_frac) 
+    
+    if(free_top >= MAX_ORGANISMS - 2) 
     {
         char buf[128];
         snprintf(buf, sizeof(buf), "screenshots/material_steps:%d.png", step_counter);
@@ -2676,11 +2776,20 @@ void Organism_Update()
         Save_Screenshot(buf, SCREENSHOT_FLAGS);
         Repopulate();
     }
+    
+    // printf("\nfree_top: %d\n", free_top);
+    // for(int i = 0; i < MAX_ORGANISMS - 1; i++)
+    // {
+    //     if(population[free_stack[i]].alive)
+    //         printf(GREEN_BG "id: %d" RESET "\n", free_stack[i]);
+    //     else 
+    //         printf(RED_BG "id: %d" RESET "\n", free_stack[i]);
+    // }
 }
 
 uint16_t Most_Common_Neighbor(int16_t x, int16_t y)
 {
-    // if(debug) fprintf(stderr, "\nMost_Common_Neighbor");
+    if(debug) fprintf(stderr, "\nMost_Common_Neighbor"), fflush(stderr);
     static uint16_t id_count[MAX_ORGANISMS];
     uint16_t x1 = mod(x, grid_width);
     uint16_t y1 = mod(y, grid_height);
@@ -2721,7 +2830,7 @@ uint16_t Most_Common_Neighbor(int16_t x, int16_t y)
 
 void Repopulate()
 {
-    // if(debug) fprintf(stderr, "\nRepopulate");
+    if(debug) fprintf(stderr, "\nRepopulate"), fflush(stderr);
     if(repopulate == 0) return;
     step_counter = 0;
     Best_Genome_Spread();
@@ -2739,7 +2848,7 @@ void Repopulate()
     {
         for(int j = 0; j < grid_width; j++)
         {
-            grid_mat += grid_array[i][j].mat;
+            grid_mat += grid_array[i][j].material;
         }
     }
     
@@ -2755,7 +2864,7 @@ void Repopulate()
     
     // printf("repop vol_mat: %5d org_mat: %5d grid_mat: %5d total_mat: %5d\n", vol_mat, org_mat, grid_mat, total_mat);
     
-    if(total_mat != 0)
+    if(total_mat % min_mat)
     {
         printf("%d", 1 / 0);
     }  
@@ -2778,15 +2887,15 @@ void Repopulate()
         // x = (rand() % grid_width + rand() % grid_width) / 2;
         // y = (rand() % grid_height + rand() % grid_height) / 2;
         x = rand() % grid_width;
-        y = rand() % grid_height;
+        y = grid_height * 2 / 3 + rand() % (grid_height / 3);
         if(Grid_Get(x, y)->id == 0)
-            Organism_Init(x, y);
+            Organism_Init(x, y, min_mat, starting_energy);
     }
 }
 
 void Order_Shuffle()
 {
-    // if(debug) fprintf(stderr, "\nOrder_Shuffle");
+    if(debug) fprintf(stderr, "\nOrder_Shuffle"), fflush(stderr);
     for (int i = MAX_ORGANISMS - 1; i > 0; i--) 
     {
         int j = rand() % (i + 1);
@@ -2800,6 +2909,7 @@ void Order_Shuffle()
 
 void Stats_CollectAndPrint()
 {
+    if(statistics == 0) return;
     PopulationStats pop_stats;
     EcologyStats eco_stats;
     
@@ -2894,7 +3004,8 @@ void Stats_CollectAndPrint()
             Cell* cell = &grid_array[y][x];
             
             if (cell->id == MAX_ORGANISMS) {
-                eco_stats.total_free_food += cell->mat;
+                eco_stats.total_free_food += cell->material;
+                eco_stats.total_free_energy += cell->energy;
             }
             if (cell->solid) {
                 eco_stats.total_walls++;
@@ -2909,22 +3020,22 @@ void Stats_CollectAndPrint()
     
     // ========== ВЫВОД В КОНСОЛЬ ==========
     printf("\n STEP %u\n", pop_stats.step);
-    printf("POPULATION: alive = %u\n", pop_stats.alive_count);
-    printf("REPRODUCTION: asexual = %u sexual = %u starvation = %u overheat = %u\n",
+    printf("POPULATION: alive %u\n", pop_stats.alive_count);
+    printf("REPRODUCTION: asexual %u sexual %u starvation %u overheat %u violent %u\n",
            pop_stats.asexual_reproductions, pop_stats.sexual_reproductions, 
-           pop_stats.starvation, pop_stats.overheat);
-    printf("SIZE: avg_vol = %u max_vol = %u avg_mat = %u max_mat = %u avg_neighbors = %u\n",
+           pop_stats.starvation, pop_stats.overheat, pop_stats.violent);
+    printf("SIZE: avg_vol %u max_vol %u avg_mat %u max_mat %u avg_neighbors %u\n",
            pop_stats.avg_volume, pop_stats.max_volume, pop_stats.avg_material, 
            pop_stats.max_material, pop_stats.avg_neighbors);
-    printf("BEHAVIOR: parasites = %u predators = %u builders = %u\n",
-           eco_stats.parasite_count, eco_stats.predator_count, eco_stats.builder_count);
-    printf("SOCIAL: egoist = %u low = %u medium = %u high = %u\n",
+    printf("BEHAVIOR: parasites %u predators %u builders %u phototrophs %u heterotrophs u\n",
+           eco_stats.parasite_count, eco_stats.predator_count, eco_stats.builder_count, eco_stats.phototroph_count, eco_stats.heterotroph_count);
+    printf("SOCIAL: egoist %u low %u medium %u high %u\n",
            social_egoist, social_low, social_medium, social_high);
-    printf("SIZE DIST: tiny = %u small = %u medium = %u large = %u giant = %u\n",
+    printf("SIZE DIST: tiny %u small %u medium %u large %u giant %u\n",
            eco_stats.tiny_organisms, eco_stats.small_organisms, eco_stats.medium_organisms,
            eco_stats.large_organisms, eco_stats.giant_organisms);
-    printf("RESOURCES: food = %u walls = %u flags = %u (R: %u G: %u B: %u)\n",
-           eco_stats.total_free_food, eco_stats.total_walls, eco_stats.total_flags,
+    printf("RESOURCES: food %u energy %u walls %u flags %u (R %u G %u B %u)\n",
+           eco_stats.total_free_food, eco_stats.total_free_energy, eco_stats.total_walls, eco_stats.total_flags,
            eco_stats.flag_0_total, eco_stats.flag_1_total, eco_stats.flag_2_total);
            
     // ========== ГИСТОГРАММЫ ==========
@@ -3032,19 +3143,20 @@ void Stats_CollectAndPrint()
     
     // 5. Resources (food, walls, flags)
     printf("\n RESOURCES HISTOGRAM\n");
-    uint32_t resource_values[3] = {
+    uint32_t resource_values[4] = {
         eco_stats.total_free_food,
+        eco_stats.total_free_energy,
         eco_stats.total_walls,
         eco_stats.total_flags
     };
-    const char* resource_labels[3] = {"Food", "Walls", "Flags"};
+    const char* resource_labels[4] = {"Food", "Energy", "Walls", "Flags"};
     
     uint32_t resource_max = 1;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         if (resource_values[i] > resource_max) resource_max = resource_values[i];
     }
     
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         int bar_len = (resource_max > 0) ? (resource_values[i] * BAR_WIDTH / resource_max) : 0;
         printf("%-14s: %8u [", resource_labels[i], resource_values[i]);
         for (int j = 0; j < bar_len; j++) printf("|");
@@ -3055,5 +3167,7 @@ void Stats_CollectAndPrint()
     asexual_reproductions = 0;
     sexual_reproductions = 0;
     starvation = 0;
+    overheat = 0;
+    violent = 0;
     solidify_count = 0;
 }

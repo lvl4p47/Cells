@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define RED_BG   "\x1b[41m"
+#define GREEN_BG "\x1b[42m"
+#define RESET    "\x1b[0m"
+
 static inline int16_t mod(int16_t x, uint16_t m) {
     int16_t r = x % m;
     return r >= 0 ? r : r + m;

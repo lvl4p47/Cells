@@ -13,7 +13,7 @@ typedef struct {
     int8_t vy;
     int8_t strength;
     int8_t type;
-    uint32_t mat;
+    uint32_t material;
     uint32_t energy; 
     uint16_t life_wave_str;
     uint8_t flag_0;
@@ -39,6 +39,9 @@ typedef struct {
     int16_t target_dx;
     int16_t target_dy;
     uint16_t target_str;
+    int16_t energy_dx;
+    int16_t energy_dy;
+    uint16_t energy_str;
     int16_t other_dx;
     int16_t other_dy;
     uint16_t other_str;
@@ -180,6 +183,8 @@ typedef enum
     CHECK_OTHER_DY,
     CHECK_TARGET_DX,
     CHECK_TARGET_DY,
+    CHECK_ENERGY_DX,
+    CHECK_ENERGY_DY,
     CHECK_PAIN_DX,
     CHECK_PAIN_DY,
     CHECK_FREE_DX,
@@ -246,12 +251,13 @@ static inline Cell* Grid_Get(int16_t x, int16_t y) {
 
 void Grid_Set(int16_t x, int16_t y, uint16_t id);
 void Grid_Set_Food(uint16_t x, uint16_t y);
+uint32_t Check_Conservation();
 void Grid_Update();
 void Grid_Signal(int16_t x, int16_t y, int8_t vx, int8_t vy, int8_t strength);
 void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_nothing);
 void Grid_Add_Cooldown(int16_t x, int16_t y, int8_t cd);
 
-uint16_t Organism_Init(int16_t x, int16_t y);
+uint16_t Organism_Init(int16_t x, int16_t y, uint32_t material, uint32_t energy);
 void Genome_Init(uint16_t id, uint8_t test);
 void Genome_Hash(uint16_t id);
 void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate);

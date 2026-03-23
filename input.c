@@ -47,11 +47,11 @@ void Events_Handle()
             {
                 lmb_held = 1;
                 uint16_t id = 0;
-                id = Organism_Init(x, y);
+                id = Organism_Init(x, y, 100, 200);
                 if(id == 0)
                 {
                     Organism_Quit(1);
-                    id = Organism_Init(x, y);
+                    id = Organism_Init(x, y, 100, 200);
                 }
                 Genome_Init(id, 1);
                 test_id = id;
