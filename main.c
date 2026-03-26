@@ -4,6 +4,8 @@
 int main(int argc, char* args[])
 {   
     freopen("debug.log", "w", stderr);
+    srand(clock());
+    
     All_Init();
 
     // Main loop

@@ -15,18 +15,21 @@ uint8_t timer = 0;
 uint32_t max_pacifism_threshold = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 2);
 uint32_t target_hash_step = (OP_COUNT * GENOME_SIZE * (GENOME_SIZE + 1) / 200);
 uint8_t recycle_div = 1;
-uint8_t food_mat = 10;
-uint16_t min_mat = 400;
+uint8_t food_mat = 100;
+uint16_t min_mat = 100;
 uint8_t food_mult = 0;
 uint32_t total_mat = 0;
 uint32_t alive = 0;
-uint16_t starting_energy = 128;
-uint8_t re_frac = 1200;
+uint16_t starting_energy = 381;
+uint8_t re_frac = 60000;
 uint8_t debug = 0;
-uint8_t base_mutate_chance = 10;
-uint8_t max_energy_mult = 127;
+uint8_t base_mutate_chance = 5;
+uint16_t volumetric_energy_mult = 127;
+uint16_t starting_energy_mult = 2;
 uint8_t repopulate = 1;
 uint8_t statistics = 1;
+uint16_t wall_cost = 254;
+uint8_t medium_energy = 127;
 
 // Статистика
 static uint32_t step_counter = 0;
@@ -44,7 +47,6 @@ uint16_t integer;
 
 void Grid_Init(uint16_t w, uint16_t h)
 {
-    srand(clock());
     grid_width = w;
     grid_height = h;
     
@@ -71,30 +73,6 @@ void Grid_Init(uint16_t w, uint16_t h)
     // for (int i = 0; i < MAX_ORGANISMS; i++) {
     //     printf("%d ", free_stack[i]);
     // }
-    
-    uint16_t id = MAX_ORGANISMS - 1;
-    population[id].nuc_x = 0;
-    population[id].nuc_y = 0;
-    population[id].material = food_mat * recycle_div;
-    population[id].min_mat = min_mat;
-    population[id].volume = 0;
-    population[id].target_vol = 50;
-    population[id].alive = 0;
-    population[id].multiply = 0;
-    population[id].energy = 0;
-    population[id].max_energy = 0;
-    
-    population[id].target_dx = 0;
-    population[id].target_dy = 0;
-    population[id].target_str = 0;
-    population[id].pain_dx = 0;
-    population[id].pain_dy = 0;
-    population[id].pain_str = 0;
-    population[id].strength = 1;
-    population[id].vx = 0;
-    population[id].vy = 0;
-    
-    population[id].gp = 0;
     
     Repopulate();
     // Organism_Init(grid_width / 2, grid_height / 2);
@@ -176,10 +154,13 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].cooldown = 0;
                 grid_array[y1][x1].energy = 0;
                 grid_array[y1][x1].life_wave_str = 0;
+                grid_array[y1][x1].membrane = 0;
                 
-                grid_array[y1][x1].flag_0 = 0;
-                grid_array[y1][x1].flag_1 = 0;
-                grid_array[y1][x1].flag_2 = 0;
+                for(int f = 0; f < FLAG_AMOUNT; f++)
+                {
+                    grid_array[y1][x1].flag[f] = 0;
+                }
+                
                 grid_array[y1][x1].solid = 0;
             }
             else if(population[temp_id].volume > 0)
@@ -198,18 +179,14 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].energy = 0;
                 grid_array[y1][x1].life_wave_str = 0;
                 grid_array[y1][x1].solid = 0;
+                grid_array[y1][x1].membrane = 0;
                 
-                if(population[temp_id].flag_0)
+                for(int f = 0; f < FLAG_AMOUNT; f++)
                 {
-                    grid_array[y1][x1].flag_0 = min(grid_array[y1][x1].flag_0 + 2, 255);
-                }
-                if(population[temp_id].flag_1)
-                {
-                    grid_array[y1][x1].flag_1 = min(grid_array[y1][x1].flag_1 + 2, 255);
-                }
-                if(population[temp_id].flag_2)
-                {
-                    grid_array[y1][x1].flag_2 = min(grid_array[y1][x1].flag_2 + 2, 255);
+                    if(population[temp_id].flag_other[f][STRENGTH])
+                    {
+                        grid_array[y1][x1].flag[f] = min(grid_array[y1][x1].flag[f] + 2, 255);
+                    }
                 }
                 
                 // if(population[temp_id].volume == 0 && population[temp_id].alive)
@@ -235,6 +212,7 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].energy = 0;
                 grid_array[y1][x1].life_wave_str = 0;
                 grid_array[y1][x1].solid = 0;
+                grid_array[y1][x1].membrane = 0;
             }
         }
         else if(grid_array[y1][x1].material != 0)
@@ -249,14 +227,17 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
             grid_array[y1][x1].energy = 0;
             grid_array[y1][x1].life_wave_str = 0;
             grid_array[y1][x1].solid = 0;
+            grid_array[y1][x1].membrane = 0;
             printf("weird2\n");
         }
         else if(temp_id == 0)
         {
-            grid_array[y1][x1].flag_0 = 0;
-            grid_array[y1][x1].flag_1 = 0;
-            grid_array[y1][x1].flag_2 = 0;
+            for(int f = 0; f < FLAG_AMOUNT; f++)
+            {
+                grid_array[y1][x1].flag[f] = 0;
+            }
             grid_array[y1][x1].solid = 0;
+            grid_array[y1][x1].membrane = 0;
         }
         return;
     }
@@ -264,25 +245,21 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
     // СЛУЧАЙ 2: Установка клетки организма (id > 0)
     if(id <= MAX_ORGANISMS && population[id].alive && population[id].material > 0)
     {
-        if(grid_array[y1][x1].flag_0)
+        for(int f = 0; f < FLAG_AMOUNT; f++)
         {
-            grid_array[y1][x1].flag_0 = max(grid_array[y1][x1].flag_0 - 1, 0);
+            if(grid_array[y1][x1].flag[f])
+            {
+                grid_array[y1][x1].flag[f] = max(grid_array[y1][x1].flag[f] - 1, 0);
+            }
         }
-        if(grid_array[y1][x1].flag_1)
-        {
-            grid_array[y1][x1].flag_1 = max(grid_array[y1][x1].flag_1 - 1, 0);
-        }
-        if(grid_array[y1][x1].flag_2)
-        {
-            grid_array[y1][x1].flag_2 = max(grid_array[y1][x1].flag_2 - 1, 0);
-        }
+        
         // СЛУЧАЙ 2А: Клетка пуста - всегда можно занять
-        if(population[id].energy > 127)
+        if(population[id].energy > medium_energy)
         {
             if(temp_id == 0)
             {
                 population[id].material--;
-                population[id].energy -= 127;
+                population[id].energy -= medium_energy;
                 
                 grid_array[y1][x1].id = id;
                 grid_array[y1][x1].vx = 0;
@@ -291,9 +268,10 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                 grid_array[y1][x1].type = 2;  // Все новые клетки - тело (type=2)
                 grid_array[y1][x1].material = 1;
                 grid_array[y1][x1].cooldown = 0;
-                grid_array[y1][x1].energy = 127;
+                grid_array[y1][x1].energy = medium_energy;
                 grid_array[y1][x1].life_wave_str = 0;
                 grid_array[y1][x1].solid = 0;
+                grid_array[y1][x1].membrane = 0;
                 
                 population[id].volume = min(population[id].volume + 1, 65535);
                 return;
@@ -302,16 +280,145 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
             // СЛУЧАЙ 2Б: Клетка занята другим организмом
             else if(temp_id <= MAX_ORGANISMS && temp_id != id)
             {
-                if(temp_id == MAX_ORGANISMS)
+                
                 {
-                    
-                    if(grid_array[y1][x1].solid == 0)
+                    if(temp_id == MAX_ORGANISMS)
                     {
-                        population[id].material += grid_array[y1][x1].material - 1;
-                        population[id].energy -= 127;
-                        population[id].energy += grid_array[y1][x1].energy;
-                        grid_array[y1][x1].material = 1;
                         
+                        if(grid_array[y1][x1].solid == 0)
+                        {
+                            population[id].material += grid_array[y1][x1].material - 1;
+                            population[id].energy -= medium_energy;
+                            population[id].energy += grid_array[y1][x1].energy;
+                            grid_array[y1][x1].material = 1;
+                            
+                            grid_array[y1][x1].id = id;
+                            grid_array[y1][x1].vx = 0;
+                            grid_array[y1][x1].vy = 0;
+                            grid_array[y1][x1].strength = 0;
+                            grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
+                            grid_array[y1][x1].material = 1;
+                            grid_array[y1][x1].cooldown = 0;
+                            grid_array[y1][x1].energy = medium_energy;
+                            grid_array[y1][x1].life_wave_str = 0;
+                            grid_array[y1][x1].membrane = 0;
+                            
+                            population[id].volume = min(population[id].volume + 1, 65535);
+                        }
+                        else
+                        {
+                            {
+                                uint32_t strength = population[id].energy;
+                                uint32_t mat_taken;
+                                uint32_t energy_taken;
+                                if(grid_array[y1][x1].material > 0) // breaking
+                                {
+                                    mat_taken = min(strength, grid_array[y1][x1].material);
+                                    energy_taken = min(strength, grid_array[y1][x1].energy);
+                                    
+                                    // population[id].velocity[X_DIRECTION] /= 2;
+                                    // population[id].velocity[Y_DIRECTION] /= 2;
+                                    
+                                    if(grid_array[y1][x1].energy >= energy_taken)
+                                    {
+                                        population[id].energy += energy_taken;
+                                        grid_array[y1][x1].energy -= energy_taken;
+                                    }
+                                    else if(grid_array[y1][x1].material >= mat_taken)
+                                    {
+                                        population[id].material += mat_taken;
+                                        grid_array[y1][x1].material -= mat_taken;
+                                        printf("breaking\n");
+                                    }
+                                }
+                                else if(population[id].material > 0) // breakthrough
+                                {
+                                    population[id].energy += wall_cost;
+                                    population[id].energy -= medium_energy;
+                                    grid_array[y1][x1].solid = 0;
+                                    grid_array[y1][x1].membrane = 0;
+                                    
+                                    grid_array[y1][x1].energy = medium_energy;
+                                    population[id].material -= 1; 
+                                    printf("breakthrough\n");
+                                    
+                                    grid_array[y1][x1].material = 1;
+                                    
+                                    grid_array[y1][x1].id = id;
+                                    grid_array[y1][x1].vx = 0;
+                                    grid_array[y1][x1].vy = 0;
+                                    grid_array[y1][x1].strength = 0;
+                                    grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
+                                    
+                                    grid_array[y1][x1].cooldown = 0;
+                                    grid_array[y1][x1].life_wave_str = 0;
+                                    
+                                    population[id].volume = min(population[id].volume + 1, 65535);
+                                }
+                            }
+                        }
+                    }
+                    // Проверяем генетическую совместимость
+                    else if((abs(population[id].genome_hash - population[temp_id].genome_hash) 
+                    > (max_pacifism_threshold * population[id].pacifism_treshold / 64)
+                    || population[temp_id].alive == 0))
+                    {
+                        // Обрабатываем разные типы клеток
+                        if(grid_array[y1][x1].type == 2)  // Тело
+                        {
+                            // printf("body attack");
+                            population[id].material += grid_array[y1][x1].material - 1;
+                            population[id].energy -= medium_energy;
+                            population[id].energy += grid_array[y1][x1].energy;
+                            grid_array[y1][x1].material = 1;
+                            grid_array[y1][x1].membrane = 0;
+                            
+                            if(population[temp_id].volume > 0)
+                                population[temp_id].volume--;
+                            
+                            // Если у атакованного не осталось клеток - он умирает
+                            // if(population[temp_id].alive && population[temp_id].volume == 0)
+                            // {
+                            //     // printf("\nreason of death: no cells");
+                            //     Organism_Quit(temp_id);
+                            // }
+                        }
+                        else if(grid_array[y1][x1].type == 1)  // Ядро
+                        {
+                            // printf("nucleus attack");
+                            // Атака ядра дает больше ресурсов
+                            population[id].material += population[temp_id].material / recycle_div;
+                            population[temp_id].material = 0;
+                            population[id].material += grid_array[y1][x1].material - 1;
+                            population[id].energy -= medium_energy;
+                            population[id].energy += grid_array[y1][x1].energy;
+                            population[id].energy += population[temp_id].energy;
+                            grid_array[y1][x1].material = 1;
+                            grid_array[y1][x1].membrane = 0;
+                            
+                            if(population[temp_id].volume > 1)
+                                population[temp_id].volume--;
+                            
+                            if(population[temp_id].alive)
+                            {
+                                // printf("reason of death: nucleus eaten\n");
+                                // Organism_Quit(temp_id);
+                            }
+                        }
+                        
+                        // Атакованный организм чувствует боль
+                        if(population[temp_id].alive)
+                        {
+                            uint16_t attackers_count = Id_Count(x1, y1, id);
+                            if(attackers_count > population[temp_id].sense_pain[STRENGTH])
+                            {
+                                population[temp_id].sense_pain[STRENGTH] = attackers_count;
+                                population[temp_id].sense_pain[X_DIRECTION] = x1 - population[temp_id].nuc_x;
+                                population[temp_id].sense_pain[Y_DIRECTION] = y1 - population[temp_id].nuc_y;
+                            }
+                        }
+                        
+                        // Занимаем клетку
                         grid_array[y1][x1].id = id;
                         grid_array[y1][x1].vx = 0;
                         grid_array[y1][x1].vy = 0;
@@ -319,133 +426,12 @@ void Grid_Set(int16_t x, int16_t y, uint16_t id)
                         grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
                         grid_array[y1][x1].material = 1;
                         grid_array[y1][x1].cooldown = 0;
-                        grid_array[y1][x1].energy = 127;
+                        grid_array[y1][x1].energy = medium_energy;
                         grid_array[y1][x1].life_wave_str = 0;
+                        grid_array[y1][x1].membrane = 0;
                         
                         population[id].volume = min(population[id].volume + 1, 65535);
                     }
-                    else 
-                    {
-                        {
-                            uint32_t strength = population[id].energy;
-                            uint32_t mat_taken;
-                            uint32_t energy_taken;
-                            if(grid_array[y1][x1].material > 0) // breaking
-                            {
-                                // printf("breaking\n");
-                                mat_taken = min(strength, grid_array[y1][x1].material);
-                                energy_taken = min(strength, grid_array[y1][x1].energy);
-                                
-                                if(grid_array[y1][x1].material >= mat_taken)
-                                {
-                                    population[id].material += mat_taken;
-                                    grid_array[y1][x1].material -= mat_taken;
-                                }
-                                
-                                population[id].vx /= 2;
-                                population[id].vy /= 2;
-                                
-                                if(grid_array[y1][x1].energy >= energy_taken)
-                                {
-                                    population[id].energy -= energy_taken;
-                                    grid_array[y1][x1].energy -= energy_taken;
-                                }
-                            }
-                            else if(population[id].material > 0 && population[id].energy > 127) // breakthrough
-                            {
-                                // printf("breakthrough\n");
-                                population[id].energy -= 127;
-                                population[id].energy -= grid_array[y1][x1].energy; 
-                                population[id].material -= 1; 
-                                
-                                grid_array[y1][x1].solid = 0;
-                                grid_array[y1][x1].material = 1;
-                                
-                                grid_array[y1][x1].id = id;
-                                grid_array[y1][x1].vx = 0;
-                                grid_array[y1][x1].vy = 0;
-                                grid_array[y1][x1].strength = 0;
-                                grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
-                                
-                                grid_array[y1][x1].cooldown = 0;
-                                grid_array[y1][x1].energy = 127;
-                                grid_array[y1][x1].life_wave_str = 0;
-                                
-                                population[id].volume = min(population[id].volume + 1, 65535);
-                            }
-                        }
-                    }
-                }
-                // Проверяем генетическую совместимость
-                else if((abs(population[id].genome_hash - population[temp_id].genome_hash) 
-                > (max_pacifism_threshold * population[id].pacifism_treshold / 64)
-                || population[temp_id].alive == 0))
-                {
-                    // Обрабатываем разные типы клеток
-                    if(grid_array[y1][x1].type == 2)  // Тело
-                    {
-                        // printf("body attack");
-                        population[id].material += grid_array[y1][x1].material - 1;
-                        population[id].energy -= 127;
-                        population[id].energy += grid_array[y1][x1].energy;
-                        grid_array[y1][x1].material = 1;
-                        
-                        if(population[temp_id].volume > 0)
-                            population[temp_id].volume--;
-                        
-                        // Если у атакованного не осталось клеток - он умирает
-                        // if(population[temp_id].alive && population[temp_id].volume == 0)
-                        // {
-                        //     // printf("\nreason of death: no cells");
-                        //     Organism_Quit(temp_id);
-                        // }
-                    }
-                    else if(grid_array[y1][x1].type == 1)  // Ядро
-                    {
-                        // printf("nucleus attack");
-                        // Атака ядра дает больше ресурсов
-                        population[id].material += population[temp_id].material / recycle_div;
-                        population[temp_id].material = 0;
-                        population[id].material += grid_array[y1][x1].material - 1;
-                        population[id].energy -= 127;
-                        population[id].energy += grid_array[y1][x1].energy;
-                        population[id].energy += population[temp_id].energy;
-                        grid_array[y1][x1].material = 1;
-                        
-                        if(population[temp_id].volume > 0)
-                            population[temp_id].volume--;
-                        
-                        if(population[temp_id].alive)
-                        {
-                            // printf("reason of death: nucleus eaten\n");
-                            // Organism_Quit(temp_id);
-                        }
-                    }
-                    
-                    // Атакованный организм чувствует боль
-                    if(population[temp_id].alive)
-                    {
-                        uint16_t attackers_count = Id_Count(x1, y1, id);
-                        if(attackers_count > population[temp_id].pain_str)
-                        {
-                            population[temp_id].pain_str = attackers_count;
-                            population[temp_id].pain_dx = x1 - population[temp_id].nuc_x;
-                            population[temp_id].pain_dy = y1 - population[temp_id].nuc_y;
-                        }
-                    }
-                    
-                    // Занимаем клетку
-                    grid_array[y1][x1].id = id;
-                    grid_array[y1][x1].vx = 0;
-                    grid_array[y1][x1].vy = 0;
-                    grid_array[y1][x1].strength = 0;
-                    grid_array[y1][x1].type = 2;  // Захваченная клетка становится телом
-                    grid_array[y1][x1].material = 1;
-                    grid_array[y1][x1].cooldown = 0;
-                    grid_array[y1][x1].energy = 127;
-                    grid_array[y1][x1].life_wave_str = 0;
-                    
-                    population[id].volume = min(population[id].volume + 1, 65535);
                 }
             }
         }
@@ -526,13 +512,19 @@ void Grid_Update()
     uint8_t membrane = 0;
     uint16_t id;
     
-    uint32_t leftover_material;
+    int32_t leftover_material;
+    int32_t leftover_energy;
     uint32_t cells;
-    uint32_t material_per_cell;
+    int32_t material_per_cell;
+    int32_t energy_per_cell;
+    
+    uint32_t photo_area;
+    uint16_t photo_radius;
+    uint16_t perimeter;
     
     // Order_Shuffle();  
     
-    int32_t total_change = 0;
+    int32_t total_change = 0, solid_change = 0;
     int32_t max_increase = population[id].max_energy - population[id].energy;
     int32_t max_decrease = -population[id].energy;
     
@@ -546,7 +538,12 @@ void Grid_Update()
         if(population[id1].alive)
         {
             alive++;
+            total_change = 0;
+            solid_change = 0;
+            population[id1].perimeter = 0;
+            
             // printf("\nid: %4d energy: %4d\n", id1, population[id1].energy);
+            
             int16_t min_x = population[id1].min_x;
             int16_t min_y = population[id1].min_y;
             int16_t max_x = population[id1].max_x;
@@ -559,6 +556,14 @@ void Grid_Update()
             
             uint8_t energy;
             
+            // perimeter = 2 * (population[id1].max_x - population[id1].min_x) + 
+            //             2 * (population[id1].max_y - population[id1].min_y);
+                        
+            // if(population[id1].energy > population[id1].material) photo_area = perimeter / 2;
+            // else photo_area = perimeter;
+            
+            // photo_radius = max(fast_root(photo_area) / 2, 1);
+            
             for(int i = min_y; i <= max_y; i++)
             {
                 for(int j = min_x; j <= max_x; j++)
@@ -568,15 +573,30 @@ void Grid_Update()
                     if(cell->id == id1 && (energy != 0 && energy < 255))
                     {
                         // printf("first ");
-                        // printf("%*d %*d %*d\n", 3, j, 3, i, 4, population[id1].energy);
-                        if(population[id1].photosynthesis)
-                            cell->energy = min(energy + 1, 255);
-                        else
-                            cell->energy = max(energy - 1, 0);
-                        
-                        // printf("%d\n", Grid_Get(j, i)->energy );
-                        
+                        // if(display_mode == 0) 
+                        // {
+                        //     printf("%d %d\n", population[id1].energy, population[id1].max_energy);
+                        // }
                         membrane = Is_Membrane(j, i);
+                        cell->membrane = membrane;
+                        
+                        if(cell->membrane
+                        && (Id_Count(j, i, 0) != 0 || Id_Count(j, i, MAX_ORGANISMS) != 0))
+                        {
+                            population[id1].perimeter += 8 - Id_Count(j, i, id1);
+                            if(population[id1].photosynthesis)
+                            {
+                                cell->energy = min(energy + 1, 255);
+                                if(display_mode == 0) 
+                                {
+                                    printf("%d %d\n", population[id1].energy, population[id1].max_energy);
+                                }
+                            }
+                            else
+                                cell->energy = max(energy - 1, 0);
+                        }
+                        
+                        
                         
                         if(membrane) 
                         {
@@ -588,7 +608,9 @@ void Grid_Update()
                             if(i > new_max_y) new_max_y = i;
                         }
                         
-                        if(membrane && population[id1].take_mat)
+                        if(membrane
+                        && (population[id1].steal_mat || population[id1].steal_nrg
+                        || population[id1].give_mat || population[id1].give_nrg))
                         {
                             for(int dy = -1; dy < 2; dy++)
                             {
@@ -600,12 +622,36 @@ void Grid_Update()
                                     int dist = max(abs((j + dx) - population[id1].nuc_x), abs((i + dy) - population[id1].nuc_y));
                                     if (rand() % (dist + 1) == 0) 
                                     {
-                                        if(id != id1 && id != 0
-                                        && population[id].alive && id != MAX_ORGANISMS
-                                        && population[id].material > 0)
+                                        if(id != id1 && id != 0)
                                         {
-                                            population[id].material--;
-                                            population[id1].material++;
+                                            if(population[id1].steal_mat && population[id].material > 0)
+                                            {
+                                                population[id].material--;
+                                                population[id1].material++;
+                                            }
+                                            if(population[id1].steal_nrg && population[id].energy > 0)
+                                            {
+                                                population[id].energy--;
+                                                population[id].starting_energy--;
+                                                population[id1].energy++;
+                                            }
+                                            if(id != MAX_ORGANISMS)
+                                            {
+                                                if(population[id1].give_mat && population[id1].material > 0)
+                                                {
+                                                    population[id].material++;
+                                                    population[id1].material--;
+                                                }
+                                                if(population[id1].give_nrg && population[id1].energy > 0)
+                                                {
+                                                    population[id].energy++;
+                                                    population[id1].energy--;
+                                                }
+                                                if(display_mode == 0) 
+                                                {
+                                                    printf("id %d energy %d\n", id1, population[id1].energy);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -617,8 +663,13 @@ void Grid_Update()
                         if(life_wave_str != 0
                         && cell->cooldown == 0)
                         {
-                            total_change = cell->energy - 127;
+                            total_change += cell->energy - medium_energy;
                         }
+                        // if(life_wave_str != 0 && membrane && population[id1].solidify == 1
+                        //     && (i != population[id1].nuc_y || j != population[id1].nuc_x))
+                        // {
+                        //     solid_change -= wall_cost;
+                        // }
                         
                         if(cell->strength != 0)
                         {
@@ -638,31 +689,25 @@ void Grid_Update()
                     }
                     else if(cell->id == id1)
                     {
-                        uint16_t id = cell->id;
-                        
-                        leftover_material = population[id].material;
-                        cells = population[id].volume;
-                        
+                        // printf("cell dies off\n");
+                        id = cell->id;
                         population[id].volume--;
-                        if(cells != 0)
-                        {
-                            material_per_cell = leftover_material / cells;
-                            
-                            cell->id = MAX_ORGANISMS;
-                            if(population[id].material >= material_per_cell)
-                            {
-                                cell->material += material_per_cell;
-                                population[id].material -= material_per_cell;
-                            }
-                        }
+                        cell->id = MAX_ORGANISMS;
                     }
+                    if(cell->id == id1)
+                    {
+                        membrane = Is_Membrane(j, i);
+                        cell->membrane = membrane;
+                    }
+                    
                 }
             }
-            population[id1].max_energy = max_energy_mult * population[id1].volume + starting_energy;
+            population[id1].max_energy = volumetric_energy_mult * population[id1].volume + starting_energy_mult * population[id1].starting_energy;
             max_increase = population[id1].max_energy - population[id1].energy;
             max_decrease = -population[id1].energy;
             // printf("max_decrease: %d total_change: %d max_increase: %d\n", max_decrease, total_change, max_increase);
             uint8_t all_or_nothing = (total_change > max_decrease && total_change < max_increase);
+            uint8_t all_or_nothing_solid = (solid_change > max_decrease && solid_change < max_increase);
             
             if(new_min_x > new_max_x
             || new_min_y > new_max_y) 
@@ -686,8 +731,39 @@ void Grid_Update()
                         energy = cell->energy;
                         if(cell->id == id1)
                         {
-                            membrane = Is_Membrane(j, i);
-                            if(membrane && cell->cooldown > 0)
+                            
+                            // if(cell->membrane == 1
+                            // && (j != population[id1].nuc_x || i != population[id1].nuc_y))
+                            // {
+                            //     int16_t life_wave_str = cell->life_wave_str;
+                                
+                            //     if(life_wave_str != 0 && population[id1].solidify == 1
+                            //     && all_or_nothing_solid)
+                            //     {
+                            //         if(population[id1].energy > wall_cost)
+                            //         {
+                            //             Grid_Set(j, i, 0);
+                            //             cell->id = MAX_ORGANISMS;
+                            //             population[id1].energy -= wall_cost;
+                            //             cell->solid = 1;
+                            //             // printf("crust id: %d\n", cell->solid);
+                            //         }
+                                    
+                            //         // if(population[id].material >= material_per_cell)
+                            //         // {
+                            //         //     cell->material += material_per_cell;
+                            //         //     population[id].material -= material_per_cell;
+                            //         // }
+                            //         // if(population[id].energy >= energy_per_cell)
+                            //         // {
+                            //         //     cell->energy += energy_per_cell;
+                            //         //     population[id].energy -= energy_per_cell;
+                            //         // }
+                                    
+                            //     }
+                            // }
+                            
+                            if(cell->membrane && cell->cooldown > 0)
                             {
                                 int16_t life_wave_str = cell->life_wave_str;
                                 
@@ -794,7 +870,7 @@ void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_noth
     
     int32_t max_increase = population[id].max_energy - population[id].energy;
     int32_t max_decrease = -population[id].energy;
-    int32_t desired_change = c->energy - 127;
+    int32_t desired_change = c->energy - medium_energy;
     
     Cell* n;
     
@@ -803,7 +879,7 @@ void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_noth
         if(desired_change > max_decrease && desired_change < max_increase)
         {
             population[id].energy += desired_change;
-            c->energy = 127;
+            c->energy = medium_energy;
         }
         else if(desired_change > 0)
         {
@@ -825,25 +901,6 @@ void Grid_Life_Wave(int16_t x, int16_t y, uint16_t strength, uint8_t all_or_noth
                 && n->life_wave_str == 0
                 && n->life_wave_str < max(strength - 1, 0))
                 {
-                    // max_increase = population[id].energy / 2;
-                    // max_decrease = -population[id].energy;
-                    // desired_change = n->energy - 127;
-                    
-                    // if(desired_change > max_decrease && desired_change < max_increase)
-                    // {
-                    //     population[id].energy += desired_change;
-                    //     n->energy = 127;
-                    // }
-                    // else if(desired_change > 0)
-                    // {
-                    //     population[id].energy += max_increase; 
-                    //     n->energy -= max_increase;
-                    // }
-                    // else
-                    // {
-                    //     population[id].energy += max_decrease;
-                    //     n->energy -= max_decrease;
-                    // }
                     Grid_Get(x1 + dx, y1 + dy)->life_wave_str = max(strength - 1, 0);
                     if(dy > 0 || (dy == 0 && dx > 0))
                         Grid_Get(x1 + dx, y1 + dy)->cooldown += 1;
@@ -872,7 +929,7 @@ uint16_t Organism_Init(int16_t x, int16_t y, uint32_t material, uint32_t energy)
         printf("no free ids\n");
         return 0; // Стек пуст, свободных мест нет
     }
-    if(material == 0 || energy < 128)
+    if(material == 0 || energy < starting_energy )
     {
         return 0;
     }
@@ -892,55 +949,55 @@ uint16_t Organism_Init(int16_t x, int16_t y, uint32_t material, uint32_t energy)
     population[id].material = material;
     population[id].min_mat = min_mat;
     population[id].volume = 0;
+    population[id].perimeter = 0;
     population[id].target_vol = 50;
     population[id].alive = 1;
     population[id].multiply = 0;
     population[id].energy = energy;
-    population[id].max_energy = max_energy_mult * 1 + starting_energy;
+    population[id].starting_energy = energy;
+    population[id].max_energy = volumetric_energy_mult * 1 + starting_energy_mult * population[id].starting_energy;
     
-    population[id].target_dx = 0;
-    population[id].target_dy = 0;
-    population[id].target_str = 0;
-    population[id].energy_dx = 0;
-    population[id].energy_dy = 0;
-    population[id].energy_str = 0;
-    population[id].other_dx = 0;
-    population[id].other_dy = 0;
-    population[id].other_str = 0;
-    population[id].pain_dx = 0;
-    population[id].pain_dy = 0;
-    population[id].pain_str = 0;
-    population[id].free_dx = 0;
-    population[id].free_dy = 0;
-    population[id].free_dist = 0;
-    population[id].free_str = 0;
-    population[id].friend_dx = 0;
-    population[id].friend_dy = 0;
-    population[id].friend_str = 0;
-    population[id].flag_0_dx = 0;
-    population[id].flag_0_dy = 0;
-    population[id].flag_0_str = 0;
-    population[id].flag_1_dx = 0;
-    population[id].flag_1_dy = 0;
-    population[id].flag_1_str = 0;
-    population[id].flag_2_dx = 0;
-    population[id].flag_2_dy = 0;
-    population[id].flag_2_str = 0;
+    population[id].sense_material[X_DIRECTION] = 0;
+    population[id].sense_material[Y_DIRECTION] = 0;
+    population[id].sense_material[STRENGTH] = 0;
+    population[id].sense_energy[X_DIRECTION] = 0;
+    population[id].sense_energy[Y_DIRECTION] = 0;
+    population[id].sense_energy[STRENGTH] = 0;
+    population[id].sense_other[X_DIRECTION] = 0;
+    population[id].sense_other[Y_DIRECTION] = 0;
+    population[id].sense_other[STRENGTH] = 0;
+    population[id].sense_wall[X_DIRECTION] = 0;
+    population[id].sense_wall[Y_DIRECTION] = 0;
+    population[id].sense_wall[STRENGTH] = 0;
+    population[id].sense_pain[X_DIRECTION] = 0;
+    population[id].sense_pain[Y_DIRECTION] = 0;
+    population[id].sense_pain[STRENGTH] = 0;
+    population[id].sense_free[X_DIRECTION] = 0;
+    population[id].sense_free[Y_DIRECTION] = 0;
+    population[id].sense_free[STRENGTH] = 0;
+    population[id].sense_free[DISTANCE] = 0;
+    population[id].sense_friend[X_DIRECTION] = 0;
+    population[id].sense_friend[Y_DIRECTION] = 0;
+    population[id].sense_friend[STRENGTH] = 0;
+    
+    for(int f = 0; f < FLAG_AMOUNT; f++)
+    {
+        population[id].flag_other[f][STRENGTH] = 0;
+        population[id].flag_other[f][X_DIRECTION] = 0;
+        population[id].flag_other[f][Y_DIRECTION] = 0;
+        population[id].flag[f] = 0;
+    }
     
     population[id].strength = 1;
-    population[id].vx = 0;
-    population[id].vy = 0;
+    population[id].velocity[X_DIRECTION] = 0;
+    population[id].velocity[Y_DIRECTION] = 0;
     population[id].move = 0;
-    population[id].take_mat = 0;
+    population[id].steal_mat = 0;
+    population[id].steal_nrg = 0;
+    population[id].give_mat = 0;
+    population[id].give_nrg = 0;
     population[id].attack = 0;
     population[id].photosynthesis = 1;
-    
-    population[id].flag_0 = 0;
-    population[id].flag_1 = 0;
-    population[id].flag_2 = 0;
-    population[id].is_flag_0 = 0;
-    population[id].is_flag_1 = 0;
-    population[id].is_flag_2 = 0;
     
     population[id].gp = 0;
     population[id].genome_hash = 0;
@@ -1004,10 +1061,10 @@ void Genome_Init(uint16_t id, uint8_t test)
         if(file_ptr == NULL)
         {
             // printf("file error id: %d\n", id);
-            srand(clock());
+            
             for(int i = 0; i < GENOME_SIZE; i++)
             {
-                population[id].genome[i] = rand() % OP_COUNT;
+                population[id].genome[i] = rand() % GENOME_SIZE;
                 population[id].child_genome[i] = population[id].genome[i];
             }
             Genome_Copy(id, id, 1);
@@ -1032,10 +1089,10 @@ void Genome_Init(uint16_t id, uint8_t test)
         if(file_ptr == NULL)
         {
             // printf("file error id: %d\n", id);
-            srand(clock());
+            
             for(int i = 0; i < GENOME_SIZE; i++)
             {
-                population[id].genome[i] = rand() % OP_COUNT;
+                population[id].genome[i] = rand() % GENOME_SIZE;
                 population[id].child_genome[i] = population[id].genome[i];
             }
             Genome_Copy(id, id, 1);
@@ -1070,7 +1127,7 @@ void Genome_Hash(uint16_t id)
 void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 {
     if(debug) fprintf(stderr, "\nGenome_Copy"), fflush(stderr);
-    srand(clock());
+    
     for(int i = 0; i < GENOME_SIZE; i++)
     {
         population[id2].genome[i] = population[id1].genome[i];
@@ -1079,7 +1136,7 @@ void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
         {
             if(rand() % (GENOME_SIZE * 1 / mutate) == 0) 
             {
-                population[id2].genome[i] = rand() % OP_COUNT;
+                population[id2].genome[i] = rand() % GENOME_SIZE;
                 population[id2].child_genome[i] = population[id2].genome[i];
             }
         }
@@ -1116,7 +1173,7 @@ void Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 void Child_Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
 {
     if(debug) fprintf(stderr, "\nChild_Genome_Copy"), fflush(stderr);
-    srand(clock());
+    
     for(int i = 0; i < GENOME_SIZE; i++)
     {
         population[id2].genome[i] = population[id1].child_genome[i];
@@ -1124,7 +1181,7 @@ void Child_Genome_Copy(uint16_t id1, uint16_t id2, uint8_t mutate)
         {
             if(rand() % (GENOME_SIZE * 1 / mutate) == 0) 
             {
-                population[id2].genome[i] = rand() % OP_COUNT;
+                population[id2].genome[i] = rand() % GENOME_SIZE;
             }
         }
     }
@@ -1169,40 +1226,58 @@ void Mutate_Swap_Blocks(uint16_t id)
 void Best_Genome_Spread()
 {
     if(debug) fprintf(stderr, "\nBest_Genome_Spread"), fflush(stderr);
+    
+    for(int i = 0; i < MAX_ORGANISMS; i++)
+    {
+        Organism_Quit(i);
+    }
     // printf("best_genome_spread\n");
     uint16_t current_org = 0;
     uint16_t current_ord = 0;
-    uint16_t current_best = free_top;
+    uint16_t current_best = free_stack[free_top];
     
-    Order_Shuffle();
+    
     
     while(current_best >= MAX_ORGANISMS * (re_frac - 1) / re_frac)
     {
-        current_ord = order[current_org];
-        Genome_Copy(current_best, current_ord, 0);
-        uint16_t bot = min(current_ord + 1, MAX_ORGANISMS);
-        uint16_t mid = min(current_ord + (re_frac - 1) / 2, MAX_ORGANISMS);
-        uint16_t top = min(current_ord + (re_frac - 1) - 1, MAX_ORGANISMS);
-        uint16_t last = min(current_ord + re_frac - 1, MAX_ORGANISMS);
-        Genome_Copy(current_best, last, GENOME_SIZE);
+        // printf("cur_best: %d ids:", current_best);
+        Genome_Copy(current_best, order[current_org], 0);
+        uint16_t bot = min(current_org + 1, MAX_ORGANISMS);
+        uint16_t mid = min(current_org + (re_frac) / 2, MAX_ORGANISMS);
+        uint16_t top = min(current_org + (re_frac) - 1, MAX_ORGANISMS);
+        uint16_t last = min(current_org + re_frac, MAX_ORGANISMS);
+        Genome_Copy(current_best, order[last], GENOME_SIZE);
         for(int org = bot; org < mid; org++)
         {
-            Genome_Copy(current_best, org, GENOME_SIZE);
+            Genome_Copy(current_best, order[org], 2);
+            // printf(" %d", order[org]);
             
         }
         for(int org = mid; org < top; org++)
         {
-            Genome_Copy(current_best, org, 1);
+            Genome_Copy(current_best, order[org], 1);
+            // printf(" %d", order[org]);
             
         }
+        // printf("\n");
+        
         current_best--;
-        current_org = min(current_org + MAX_ORGANISMS / re_frac, MAX_ORGANISMS - 1);
+        current_org = min(current_org + re_frac, MAX_ORGANISMS - 1);
     }
+    
+    Order_Shuffle();
+    
+    free_top = -1;
+    for (int i = 1; i < MAX_ORGANISMS; i++) {
+        free_top++;
+        free_stack[free_top] = order[i];
+    }
+    
+    printf("\n");
 }
 
 void Child_Genome_Combine(uint16_t id1, uint16_t id2)
 {
-    srand(clock());
     for(int i = 0; i < GENOME_SIZE; i++)
     {
         if(rand() % 2)
@@ -1213,9 +1288,13 @@ void Child_Genome_Combine(uint16_t id1, uint16_t id2)
 uint8_t Organism_Quit(uint16_t id)
 {
     if(debug) fprintf(stderr, "\nOrganism_Quit"), fflush(stderr);
-    // printf("organism_quit\n");
+    // printf("organism_quit ");
     if (id == 0 || id >= MAX_ORGANISMS) return 0;
     if (population[id].alive == 0) return 0;
+    
+    if(population[id].energy == 0) starvation++;
+    else if(population[id].energy >= population[id].max_energy) overheat++;
+    else violent++;
     
     Grid_Signal(population[id].nuc_x, population[id].nuc_y, 0, 0, 0);
     
@@ -1224,76 +1303,82 @@ uint8_t Organism_Quit(uint16_t id)
     int16_t max_x = population[id].max_x;
     int16_t max_y = population[id].max_y;
     
-    if(population[id].material > 0
-    && population[id].volume > 0)
+    Cell* nuc = Grid_Get(population[id].nuc_x, population[id].nuc_y);
     {
-        uint32_t leftover_material = population[id].material;
-        uint32_t cells = population[id].volume;
-        uint32_t material_per_cell = leftover_material / cells;
-        uint32_t leftover_energy = population[id].energy;
-        uint32_t energy_per_cell = leftover_energy / cells;
+        nuc->material += population[id].material;
+        nuc->energy += population[id].energy;
+    }
+    
+    // if(population[id].material > 0
+    // && population[id].volume > 0)
+    // {
+    //     uint32_t leftover_material = population[id].material;
+    //     uint32_t cells = population[id].volume;
+    //     uint32_t material_per_cell = leftover_material / cells;
+    //     uint32_t leftover_energy = population[id].energy;
+    //     uint32_t energy_per_cell = leftover_energy / cells;
 
-        // Проходим по всем клеткам организма
-        for(int i = min_y; i <= max_y; i++)
-        {
-            for(int j = min_x; j <= max_x; j++)
-            {
-                if(Grid_Get(j, i)->id == id)
-                {
-                    if(population[id].material >= material_per_cell 
-                    && population[id].energy >= energy_per_cell)
-                    {
-                        Grid_Get(j, i)->material += material_per_cell;
-                        population[id].material -= material_per_cell;
+    //     // Проходим по всем клеткам организма
+    //     for(int i = min_y; i <= max_y; i++)
+    //     {
+    //         for(int j = min_x; j <= max_x; j++)
+    //         {
+    //             if(Grid_Get(j, i)->id == id)
+    //             {
+    //                 if(population[id].material >= material_per_cell 
+    //                 && population[id].energy >= energy_per_cell)
+    //                 {
+    //                     Grid_Get(j, i)->material += material_per_cell;
+    //                     population[id].material -= material_per_cell;
                         
-                        Grid_Get(j, i)->energy += energy_per_cell;
-                        population[id].energy -= energy_per_cell;
-                    }
-                }
-            }
-        }
+    //                     Grid_Get(j, i)->energy += energy_per_cell;
+    //                     population[id].energy -= energy_per_cell;
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        // Добавляем остаток в ядро
-        Cell* nucleus = Grid_Get(population[id].nuc_x, population[id].nuc_y);
+    //     // Добавляем остаток в ядро
+    //     Cell* nucleus = Grid_Get(population[id].nuc_x, population[id].nuc_y);
         
-        if(nucleus->id != 0)
-        {
-            nucleus->material += population[id].material;
-            nucleus->energy += population[id].energy;
-        }
-        else 
-        {
-            Grid_Set(population[id].nuc_x, population[id].nuc_y, MAX_ORGANISMS);
-            nucleus->material += population[id].material;
-            nucleus->energy += population[id].energy;
-        }
-        population[id].material = 0;
-        population[id].energy = 0;
-        // printf("with volume\n");
-    }
-    else if(population[id].material > 0)
-    {
-        // printf("without volume\n");
-        // printf("id below: %d nucleus id: %d\n", Grid_Get(population[id].nuc_x, population[id].nuc_y)->id, id);
-        // Нет клеток — весь материал кладём в ядро (которое, возможно, тоже не клетка, но это место его последнего положения)
+    //     if(nucleus->id != 0)
+    //     {
+    //         nucleus->material += population[id].material;
+    //         nucleus->energy += population[id].energy;
+    //     }
+    //     else 
+    //     {
+    //         Grid_Set(population[id].nuc_x, population[id].nuc_y, MAX_ORGANISMS);
+    //         nucleus->material += population[id].material;
+    //         nucleus->energy += population[id].energy;
+    //     }
+    //     population[id].material = 0;
+    //     population[id].energy = 0;
+    //     // printf("with volume\n");
+    // }
+    // else if(population[id].material > 0)
+    // {
+    //     // printf("without volume\n");
+    //     // printf("id below: %d nucleus id: %d\n", Grid_Get(population[id].nuc_x, population[id].nuc_y)->id, id);
+    //     // Нет клеток — весь материал кладём в ядро (которое, возможно, тоже не клетка, но это место его последнего положения)
         
-        if(Grid_Get(population[id].nuc_x, population[id].nuc_y)->id != 0)
-        {
-            // printf("1");
-            Grid_Get(population[id].nuc_x, population[id].nuc_y)->material += population[id].material;
-            Grid_Get(population[id].nuc_x, population[id].nuc_y)->energy += population[id].energy;
-        }
-        else 
-        {
-            // printf("2");
-            Grid_Set(population[id].nuc_x, population[id].nuc_y, MAX_ORGANISMS);
-            Grid_Get(population[id].nuc_x, population[id].nuc_y)->material += population[id].material;
-            Grid_Get(population[id].nuc_x, population[id].nuc_y)->energy += population[id].energy;
-        }
-        population[id].material = 0;
-        population[id].energy = 0;
-    }
-    else
+    //     if(Grid_Get(population[id].nuc_x, population[id].nuc_y)->id != 0)
+    //     {
+    //         // printf("1");
+    //         Grid_Get(population[id].nuc_x, population[id].nuc_y)->material += population[id].material;
+    //         Grid_Get(population[id].nuc_x, population[id].nuc_y)->energy += population[id].energy;
+    //     }
+    //     else 
+    //     {
+    //         // printf("2");
+    //         Grid_Set(population[id].nuc_x, population[id].nuc_y, MAX_ORGANISMS);
+    //         Grid_Get(population[id].nuc_x, population[id].nuc_y)->material += population[id].material;
+    //         Grid_Get(population[id].nuc_x, population[id].nuc_y)->energy += population[id].energy;
+    //     }
+    //     population[id].material = 0;
+    //     population[id].energy = 0;
+    // }
+    // else
     {
         // printf("without material and volume\n");
         // printf("id below: %d nucleus id: %d\n", Grid_Get(population[id].nuc_x, population[id].nuc_y)->id, id);
@@ -1306,16 +1391,10 @@ uint8_t Organism_Quit(uint16_t id)
             if(Grid_Get(j, i)->id == id)
             {
                 Grid_Get(j, i)->id = MAX_ORGANISMS;
-                if(population[id].solidify)
+                if(population[id].solidify == 2)
                     Grid_Get(j, i)->solid = 1;
             }
         }
-    }
-    
-    Cell* nuc = Grid_Get(population[id].nuc_x, population[id].nuc_y);
-    if (nuc->id == id) {
-        nuc->id = MAX_ORGANISMS;
-        // material остаётся
     }
     
     // Adjust free_stack
@@ -1329,10 +1408,6 @@ uint8_t Organism_Quit(uint16_t id)
     free_top++;
     free_stack[free_top] = id;
     
-    if(population[id].energy == 0) starvation++;
-    else if(population[id].energy >= population[id].max_energy) overheat++;
-    else violent++;
-    
     // Опционально: обнуляем данные в массиве организмов
     
     population[id].nuc_x = 0;
@@ -1340,42 +1415,53 @@ uint8_t Organism_Quit(uint16_t id)
     population[id].material = 0;
     population[id].min_mat = 40;
     population[id].volume = 0;
+    population[id].perimeter = 0;
     population[id].target_vol = 0;
     population[id].alive = 0;
     population[id].multiply = 0;
     population[id].energy = 0;
+    population[id].starting_energy = 0;
     population[id].max_energy = 0;
-    population[id].target_dx = 0;
-    population[id].target_dy = 0;
-    population[id].target_str = 0;
-    population[id].energy_dx = 0;
-    population[id].energy_dy = 0;
-    population[id].energy_str = 0;
-    population[id].other_dx = 0;
-    population[id].other_dy = 0;
-    population[id].other_str = 0;
-    population[id].pain_dx = 0;
-    population[id].pain_dy = 0;
-    population[id].pain_str = 0;
-    population[id].free_dx = 0;
-    population[id].free_dy = 0;
-    population[id].free_dist = 0;
-    population[id].free_str = 0;
-    population[id].friend_dx = 0;
-    population[id].friend_dy = 0;
-    population[id].friend_str = 0;
-    population[id].vx = 0;
-    population[id].vy = 0;
+    population[id].sense_material[X_DIRECTION] = 0;
+    population[id].sense_material[Y_DIRECTION] = 0;
+    population[id].sense_material[STRENGTH] = 0;
+    population[id].sense_energy[X_DIRECTION] = 0;
+    population[id].sense_energy[Y_DIRECTION] = 0;
+    population[id].sense_energy[STRENGTH] = 0;
+    population[id].sense_other[X_DIRECTION] = 0;
+    population[id].sense_other[Y_DIRECTION] = 0;
+    population[id].sense_other[STRENGTH] = 0;
+    population[id].sense_wall[X_DIRECTION] = 0;
+    population[id].sense_wall[Y_DIRECTION] = 0;
+    population[id].sense_wall[STRENGTH] = 0;
+    population[id].sense_pain[X_DIRECTION] = 0;
+    population[id].sense_pain[Y_DIRECTION] = 0;
+    population[id].sense_pain[STRENGTH] = 0;
+    population[id].sense_free[X_DIRECTION] = 0;
+    population[id].sense_free[Y_DIRECTION] = 0;
+    population[id].sense_free[STRENGTH] = 0;
+    population[id].sense_free[DISTANCE] = 0;
+    population[id].sense_friend[X_DIRECTION] = 0;
+    population[id].sense_friend[Y_DIRECTION] = 0;
+    population[id].sense_friend[STRENGTH] = 0;
+    population[id].velocity[X_DIRECTION] = 0;
+    population[id].velocity[Y_DIRECTION] = 0;
     population[id].move = 0;
-    population[id].take_mat = 0;
+    population[id].steal_mat = 0;
+    population[id].steal_nrg = 0;
+    population[id].give_mat = 0;
+    population[id].give_nrg = 0;
     population[id].attack = 0;
     population[id].photosynthesis = 1;
-    population[id].flag_0 = 0;
-    population[id].flag_1 = 0;
-    population[id].flag_2 = 0;
-    population[id].is_flag_0 = 0;
-    population[id].is_flag_1 = 0;
-    population[id].is_flag_2 = 0;
+    
+    for(int f = 0; f < FLAG_AMOUNT; f++)
+    {
+        population[id].flag_other[f][STRENGTH] = 0;
+        population[id].flag_other[f][X_DIRECTION] = 0;
+        population[id].flag_other[f][Y_DIRECTION] = 0;
+        population[id].flag[f] = 0;
+    }
+    
     population[id].gp = 0;
     population[id].genome_hash = 0;
     population[id].target_hash = 0;
@@ -1425,19 +1511,14 @@ void Process_Membrane(int16_t x, int16_t y)
     uint16_t id1;
     uint16_t counter = 0;
     uint16_t other = 0;
-    uint16_t target = 0;
+    uint16_t wall = 0;
+    uint16_t material = 0;
     uint16_t energy = 0;
     uint16_t free = 0;
     uint16_t free_dist = 65535;
     uint16_t friends = 0;
     
-    uint8_t flag_0 = 0;
-    uint8_t flag_1 = 0;
-    uint8_t flag_2 = 0;
-    
-    uint16_t flag_0_str = 0;
-    uint16_t flag_1_str = 0;
-    uint16_t flag_2_str = 0;
+    uint16_t flag_other[FLAG_AMOUNT][3];
     
     uint32_t hash, hash_id;
     uint16_t partner_id = population[id].partner_id;
@@ -1446,8 +1527,8 @@ void Process_Membrane(int16_t x, int16_t y)
     uint16_t linear_size = max(population[id].max_x - population[id].min_x
     + population[id].max_y - population[id].min_y, 1);
     
-    int8_t vx = population[id].vx;
-    int8_t vy = population[id].vy;
+    int8_t vx = population[id].velocity[X_DIRECTION];
+    int8_t vy = population[id].velocity[Y_DIRECTION];
     uint8_t ax = abs(vx);
     uint8_t ay = abs(vy);
     
@@ -1498,21 +1579,29 @@ void Process_Membrane(int16_t x, int16_t y)
                 counter++;
                 if(id1 == MAX_ORGANISMS || population[id1].alive == 0) 
                 {
-                    target += cell->material;
-                    energy += cell->energy;
+                    if(cell->solid == 0)
+                    {
+                        material += cell->material;
+                        energy += cell->energy;
+                    }
+                    else
+                    {
+                        wall += cell->energy;
+                    }
+                    
                 }
                 else if(id1 != 0)
                 {
-                    if(population[id1].take_mat)
+                    if(population[id1].steal_mat || population[id1].steal_nrg)
                         other += 31;
                     else
                         other += 3;
-                    if(population[id1].flag_0)
-                        flag_0 += population[id1].flag_0;
-                    if(population[id1].flag_1)
-                        flag_1 += population[id1].flag_1;
-                    if(population[id1].flag_2)
-                        flag_2 += population[id1].flag_2;
+                    
+                    // for(int f = 0; f < FLAG_AMOUNT; f++)
+                    // {
+                    //     if(population[id1].flag[f])
+                    //         flag[f] += population[id1].flag[f];
+                    // }
                 }
             }
             else if(id1 != id
@@ -1523,17 +1612,10 @@ void Process_Membrane(int16_t x, int16_t y)
                 friends += 31;   
             }
             
-            if(cell->flag_0)
+            for(int f = 0; f < FLAG_AMOUNT; f++)
             {
-                flag_0_str += cell->flag_0;
-            }
-            if(cell->flag_1)
-            {
-                flag_1_str += cell->flag_1;
-            }
-            if(cell->flag_2)
-            {
-                flag_2_str += cell->flag_2;
+                if(cell->flag[f])
+                    flag_other[f][STRENGTH] += cell->flag[f];
             }
         }
     }
@@ -1548,23 +1630,29 @@ void Process_Membrane(int16_t x, int16_t y)
         int16_t dx_to_nuc = x - population[id].nuc_x;
         int16_t dy_to_nuc = y - population[id].nuc_y;
         
-        if(other > population[id].other_str)
+        if(other > population[id].sense_other[STRENGTH])
         {
-            population[id].other_str = other;
-            population[id].other_dx = dx_to_nuc;
-            population[id].other_dy = dy_to_nuc;
+            population[id].sense_other[STRENGTH] = other;
+            population[id].sense_other[X_DIRECTION] = dx_to_nuc;
+            population[id].sense_other[Y_DIRECTION] = dy_to_nuc;
         }
-        if(target > population[id].target_str)
+        if(wall > population[id].sense_wall[STRENGTH])
         {
-            population[id].target_str = target;
-            population[id].target_dx = dx_to_nuc;
-            population[id].target_dy = dy_to_nuc;
+            population[id].sense_wall[STRENGTH] = wall;
+            population[id].sense_wall[X_DIRECTION] = dx_to_nuc;
+            population[id].sense_wall[Y_DIRECTION] = dy_to_nuc;
         }
-        if(energy > population[id].energy_str)
+        if(material > population[id].sense_material[STRENGTH])
         {
-            population[id].energy_str = energy;
-            population[id].energy_dx = dx_to_nuc;
-            population[id].energy_dy = dy_to_nuc;
+            population[id].sense_material[STRENGTH] = material;
+            population[id].sense_material[X_DIRECTION] = dx_to_nuc;
+            population[id].sense_material[Y_DIRECTION] = dy_to_nuc;
+        }
+        if(energy > population[id].sense_energy[STRENGTH])
+        {
+            population[id].sense_energy[STRENGTH] = energy;
+            population[id].sense_energy[X_DIRECTION] = dx_to_nuc;
+            population[id].sense_energy[Y_DIRECTION] = dy_to_nuc;
         }
         if(free > 0)
         {
@@ -1582,74 +1670,54 @@ void Process_Membrane(int16_t x, int16_t y)
             if(vel_len_sq == 0)
             {
                 // Старая логика: выбираем ближайшую свободную клетку
-                if((free_dist < population[id].free_dist && free > 0)
-                || (free_dist == population[id].free_dist && free > population[id].free_str))
+                if((free_dist < population[id].sense_free[DISTANCE] && free > 0)
+                || (free_dist == population[id].sense_free[DISTANCE] && free > population[id].sense_free[STRENGTH]))
                 {
-                    population[id].free_str = free;
-                    population[id].free_dist = free_dist;
-                    population[id].free_dx = dx_to_nuc;
-                    population[id].free_dy = dy_to_nuc;
+                    population[id].sense_free[STRENGTH] = free;
+                    population[id].sense_free[DISTANCE] = free_dist;
+                    population[id].sense_free[X_DIRECTION] = dx_to_nuc;
+                    population[id].sense_free[Y_DIRECTION] = dy_to_nuc;
                 }
             }
             else
             {
-                int16_t existing_dot = population[id].free_dx * vx + population[id].free_dy * vy;
+                int16_t existing_dot = population[id].sense_free[X_DIRECTION] * vx + population[id].sense_free[Y_DIRECTION] * vy;
                 
-                if(population[id].free_str == 0 || dot > existing_dot)
+                if(population[id].sense_free[STRENGTH] == 0 || dot > existing_dot)
                 {
-                    population[id].free_str = free;
-                    population[id].free_dist = free_dist;
-                    population[id].free_dx = dx_to_nuc;
-                    population[id].free_dy = dy_to_nuc;
+                    population[id].sense_free[STRENGTH] = free;
+                    population[id].sense_free[DISTANCE] = free_dist;
+                    population[id].sense_free[X_DIRECTION] = dx_to_nuc;
+                    population[id].sense_free[Y_DIRECTION] = dy_to_nuc;
                 }
-                else if(dot == existing_dot && (free_dist < population[id].free_dist
-                || free_dist == population[id].free_dist && free > population[id].free_str)
+                else if(dot == existing_dot && (free_dist < population[id].sense_free[DISTANCE]
+                || free_dist == population[id].sense_free[DISTANCE] && free > population[id].sense_free[STRENGTH])
                 
                 )
                 {
-                    population[id].free_str = free;
-                    population[id].free_dist = free_dist;
-                    population[id].free_dx = dx_to_nuc;
-                    population[id].free_dy = dy_to_nuc;
+                    population[id].sense_free[STRENGTH] = free;
+                    population[id].sense_free[DISTANCE] = free_dist;
+                    population[id].sense_free[X_DIRECTION] = dx_to_nuc;
+                    population[id].sense_free[Y_DIRECTION] = dy_to_nuc;
                 }
             }
         }
         
-        if(flag_0 > population[id].is_flag_0)
+        for(int f = 0; f < FLAG_AMOUNT; f++)
         {
-            population[id].is_flag_0 = flag_0;
+            if(flag_other[f][STRENGTH] > population[id].flag_other[f][STRENGTH])
+            {
+                population[id].flag_other[f][STRENGTH] = flag_other[f][STRENGTH];
+                population[id].flag_other[f][X_DIRECTION] = dx_to_nuc;
+                population[id].flag_other[f][Y_DIRECTION] = dy_to_nuc;
+            }
         }
-        if(flag_1 > population[id].is_flag_1)
+        
+        if(friends > population[id].sense_friend[STRENGTH])
         {
-            population[id].is_flag_1 = flag_1;
-        }
-        if(flag_2 > population[id].is_flag_2)
-        {
-            population[id].is_flag_2 = flag_2;
-        }
-        if(flag_0_str > population[id].flag_0_str)
-        {
-            population[id].flag_0_str = flag_0_str;
-            population[id].flag_0_dx = dx_to_nuc;
-            population[id].flag_0_dy = dy_to_nuc;
-        }
-        if(flag_1_str > population[id].flag_1_str)
-        {
-            population[id].flag_1_str = flag_1_str;
-            population[id].flag_1_dx = dx_to_nuc;
-            population[id].flag_1_dy = dy_to_nuc;
-        }
-        if(flag_2_str > population[id].flag_2_str)
-        {
-            population[id].flag_2_str = flag_2_str;
-            population[id].flag_2_dx = dx_to_nuc;
-            population[id].flag_2_dy = dy_to_nuc;
-        }
-        if(friends > population[id].friend_str)
-        {
-            population[id].friend_str = friends;
-            population[id].friend_dx = dx_to_nuc;
-            population[id].friend_dy = dy_to_nuc;
+            population[id].sense_friend[STRENGTH] = friends;
+            population[id].sense_friend[X_DIRECTION] = dx_to_nuc;
+            population[id].sense_friend[Y_DIRECTION] = dy_to_nuc;
         }
         
         partner_id = population[id].partner_id;
@@ -1659,7 +1727,7 @@ void Process_Membrane(int16_t x, int16_t y)
         
         if(partner_id != 0 && id == population[partner_id].partner_id
          && population[id].sex == 0
-         && population[id].solidify == 0 && population[partner_id].solidify == 0
+         && population[id].solidify != 2 && population[partner_id].solidify != 2
          && population[partner_id].fertilized == 0)
         {
             Child_Genome_Combine(partner_id, id);
@@ -1709,8 +1777,8 @@ uint8_t Expand(int16_t x, int16_t y, int8_t strength)
             for(int dx = -1; dx < 2; dx++)
             {
                 id_to = Grid_Get(x + dx, y + dy)->id;
-                int16_t vx = population[id].vx;
-                int16_t vy = population[id].vy;
+                int16_t vx = population[id].velocity[X_DIRECTION];
+                int16_t vy = population[id].velocity[Y_DIRECTION];
                 uint8_t penetrate = (
                 (max(abs(vx) + 1, abs(vy) + 1) * population[id].volume
                  > population[id_to].volume)
@@ -1730,8 +1798,8 @@ uint8_t Expand(int16_t x, int16_t y, int8_t strength)
                     Grid_Add_Cooldown(x1 + dx, y1 + dy, 4);
                     if(penetrate && 0)
                     {
-                        population[id].vx -= sign(population[id].vx);
-                        population[id].vy -= sign(population[id].vy);
+                        population[id].velocity[X_DIRECTION] -= sign(population[id].velocity[X_DIRECTION]);
+                        population[id].velocity[Y_DIRECTION] -= sign(population[id].velocity[Y_DIRECTION]);
                     }
                 }
             }
@@ -1830,25 +1898,20 @@ void Organism_Update()
             
             cell = Grid_Get(x, y);
             
-            if(cell->id != i || cell->id == 0)
+            if(cell->id != i)
             {
-                // printf("death\n");
                 if(Organism_Quit(i) == 1)
                     continue;
             }
-            // if(population[i].energy >= population[i].max_energy)
+            // if(population[i].energy >= population[i].max_energy
+            // || population[i].energy == 0)
             // {
-            //     // printf("high energy\n");
-            //     // population[i].multiply = 1;
+            //     if(Organism_Quit(i) == 1)
+            //         continue;
             // }
-            // if(population[i].energy == 0)
-            // {
-            //     printf("low energy\n");
-            // }
-            
             cell->type = 2;
             
-            uint16_t flag, flag_str = 16;
+            uint16_t flag, flag_other = 16;
             uint32_t step;
             
             uint8_t gp = population[i].gp;
@@ -1861,6 +1924,15 @@ void Organism_Update()
             uint8_t multiply = population[i].multiply;
             uint8_t print = 0;
             uint8_t dp = 1; 
+            uint8_t command1 = (gp + 1) % GENOME_SIZE;
+            uint8_t command2 = (gp + 2) % GENOME_SIZE;
+            uint8_t command3 = (gp + 3) % GENOME_SIZE;
+            uint8_t command4 = (gp + 4) % GENOME_SIZE;
+            uint8_t command5 = (gp + 5) % GENOME_SIZE;
+            uint8_t command6 = (gp + 6) % GENOME_SIZE;
+            
+            uint8_t temp_value;
+            uint8_t axis;
             
             uint16_t max_str = max(
             max(
@@ -1868,7 +1940,7 @@ void Organism_Update()
                 population[i].max_y - population[i].min_y),
                 1
                 );
-            
+            // printf("id: %d\n", i);
             
             if(i == test_id)
             {
@@ -1880,657 +1952,428 @@ void Organism_Update()
             {
             switch (op)
             {
-            case VX_POS:
-                population[i].vx = min(population[i].vx + 1, 127);
-                if(population[i].vx != 0)
+            case SET_VEL: // v
+                temp_value = population[i].genome[command1];
+                axis = population[i].genome[command2] % 2; // x or y
+                
+                if(population[i].velocity[axis] + temp_value - 128 <= 127
+                && population[i].velocity[axis] + temp_value - 128 >= -128) 
+                    population[i].velocity[axis] = population[i].velocity[axis] + temp_value - 128;
+                if(population[i].velocity[axis] != 0)
                 {
                     population[i].move = 1;
                     move = 1;
                 }
-                if(print) printf("\n VX_POS ");
+                dp = 3;
+                if(print) printf("\n SET_VEL ");
                 break;
-            case VX_NEG:
-                population[i].vx = max(population[i].vx - 1, -128);
-                if(population[i].vx != 0)
-                {
-                    population[i].move = 1;
-                    move = 1;
-                }
-                if(print) printf("\n VX_NEG ");
-                break;
-            case VY_POS:
-                population[i].vy = min(population[i].vy + 1, 127);
-                if(population[i].vy != 0)
-                {
-                    population[i].move = 1;
-                    move = 1;
-                }
-                if(print) printf("\n VY_POS ");
-                break;
-            case VY_NEG:
-                population[i].vy = max(population[i].vy - 1, -128);
-                if(population[i].vy != 0)
-                {
-                    population[i].move = 1;
-                    move = 1;
-                }
-                if(print) printf("\n VY_NEG ");
-                break;
-            case ACCEL:
+            case ACCEL: // v
                 population[i].move = 1;
                 move = 1;
                 
-                if(population[i].vx == 0 
-                && population[i].vy == 0)
+                if(population[i].velocity[X_DIRECTION] == 0 
+                && population[i].velocity[Y_DIRECTION] == 0)
                 {
-                    population[i].vx = rand() % 256 - 128;
-                    population[i].vy = rand() % 256 - 128;
+                    population[i].velocity[X_DIRECTION] = rand() % 256 - 128;
+                    population[i].velocity[Y_DIRECTION] = rand() % 256 - 128;
                 }
             
-                if(abs(population[i].vx) <= 63 && abs(population[i].vy) <= 63) 
+                if(abs(population[i].velocity[X_DIRECTION]) <= 63 && abs(population[i].velocity[Y_DIRECTION]) <= 63) 
                 {
-                    population[i].vx *= 2;
-                    population[i].vy *= 2;
+                    population[i].velocity[X_DIRECTION] *= 2;
+                    population[i].velocity[Y_DIRECTION] *= 2;
                 }
                 if(print) printf("\n ACCEL ");
                 break;
-            case STOP:
-                population[i].vx /= 2;
-                population[i].vy /= 2; 
-                if(population[i].vx == 0 && population[i].vy == 0)
+            case STOP: // v
+                population[i].velocity[X_DIRECTION] = 0;
+                population[i].velocity[Y_DIRECTION] = 0; 
+                if(population[i].velocity[X_DIRECTION] == 0 && population[i].velocity[Y_DIRECTION] == 0)
                 {
                     population[i].move = 0;
                     move = 0;
                 }
                 if(print) printf("\n STOP ");
                 break;
-            case GROW:
+            case GROW: // v
                 population[i].grow = 1;
                 grow = 1;
                 
                 population[i].move = 1;
                 move = 1;
                 population[i].signal_timer = abs(population[i].strength);
-                if(population[i].vx == 0 
-                && population[i].vy == 0)
+                if(population[i].velocity[X_DIRECTION] == 0 
+                && population[i].velocity[Y_DIRECTION] == 0)
                 {
-                    population[i].vx = rand() % 256 - 128;
-                    population[i].vy = rand() % 256 - 128;
+                    population[i].velocity[X_DIRECTION] = rand() % 256 - 128;
+                    population[i].velocity[Y_DIRECTION] = rand() % 256 - 128;
                 }
                 if(print) printf("\n GROW ");
                 break;
-            case SHRINK:
+            case SHRINK: // v
                 population[i].shrink = 1;
                 shrink = 1;
                 
                 population[i].move = 1;
                 move = 1;
                 population[i].signal_timer = abs(population[i].strength);
-                if(population[i].vx == 0 
-                && population[i].vy == 0)
+                if(population[i].velocity[X_DIRECTION] == 0 
+                && population[i].velocity[Y_DIRECTION] == 0)
                 {
-                    population[i].vx = rand() % 256 - 128;
-                    population[i].vy = rand() % 256 - 128;
+                    population[i].velocity[X_DIRECTION] = rand() % 256 - 128;
+                    population[i].velocity[Y_DIRECTION] = rand() % 256 - 128;
                 }
                 if(print) printf("\n SHRINK ");
                 break;
-            case STR_POS:
-                population[i].strength = min(population[i].strength + 1, max_str);
-                if(print) printf("\n STR_POS ");
-                break;
-            case STR_NEG:
-                population[i].strength = max(population[i].strength - 1, 1);
-                if(print) printf("\n STR_NEG ");
-                break;
-            case STR_ONE:
-                population[i].strength = 1;
-                if(print) printf("\n STR_ONE ");
-                break;
-            case STR_MAX:
-                population[i].strength = max_str;
-                if(print) printf("\n STR_MAX ");
-                break;
-            case GOTO_ZONE_0:
-                population[i].gp = 0;
-                dp = 0;
-                if(print) printf("\n GOTO_0 ");
-                break;
-            case GOTO_ZONE_1:
-                population[i].gp = GENOME_SIZE / 3;
-                dp = 0;
-                if(print) printf("\n GOTO_0 ");
-                break;
-            case GOTO_ZONE_2:
-                population[i].gp = GENOME_SIZE * 2 / 3;
-                dp = 0;
-                if(print) printf("\n GOTO_0 ");
-                break;
-            case SKIP:
+            case SET_STR: // v
+                temp_value = (population[i].genome[command1] - 128) * max_str / 128;
+                population[i].strength = 
+                min(
+                    max(population[i].strength + temp_value, 0), max_str
+                );
                 dp = 2;
-                if(print) printf("\n SKIP ");
+                if(print) printf("\n SET_STR ");
                 break;
-            case CHECK_OTHER_DX:
-                if (population[i].other_str == 0) 
+            case CHECK_OTHER: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_other[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].other_dx > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_other[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].other_dx < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_other[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_OTHER_DX ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_OTHER ");
                 break;
-            case CHECK_OTHER_DY:
-                if (population[i].other_str == 0) 
+            case CHECK_WALL: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_wall[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].other_dy > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_wall[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].other_dy < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_wall[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_OTHER_DY ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_WALL ");
                 break;
-            case CHECK_TARGET_DX:
-                if (population[i].target_str == 0) 
+            case CHECK_TARGET: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_material[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].target_dx > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_material[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].target_dx < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_material[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_TARGET_DX ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_TARGET ");
                 break;
-            case CHECK_TARGET_DY:
-                if (population[i].target_str == 0) 
+            case CHECK_ENERGY: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_energy[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].target_dy > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_energy[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].target_dy < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_energy[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_TARGET_DY ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_ENERGY ");
                 break;
-            case CHECK_ENERGY_DX:
-                if (population[i].energy_str == 0) 
+            case CHECK_PAIN: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_pain[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].energy_dx > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_pain[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].energy_dx < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_pain[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_ENERGY_DX ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_PAIN ");
                 break;
-            case CHECK_ENERGY_DY:
-                if (population[i].energy_str == 0) 
+            case CHECK_FREE: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_free[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].energy_dy > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_free[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].energy_dy < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_free[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_ENERGY_DY ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_FREE ");
                 break;
-            case CHECK_PAIN_DX:
-                if (population[i].pain_str == 0) 
+            case CHECK_FRIEND: // v
+                axis = population[i].genome[command2] % 2; // x or y
+                if (population[i].sense_friend[STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (population[i].pain_dx > 0)
+                    dp = 5 + population[i].genome[command1];
+                } else if (population[i].sense_friend[axis] < 0)
                 {
-                    dp = 3;
-                } else if (population[i].pain_dx < 0)
+                    dp = 5 + population[i].genome[command2];
+                } else if (population[i].sense_friend[axis] == 0)
                 {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
+                    dp = 5 + population[i].genome[command3];
                 }
-                if(print) printf("\n CHECK_PAIN_DX ");
+                else
+                    dp = 5 + population[i].genome[command4];
+                if(print) printf("\n CHECK_FRIEND ");
                 break;
-            case CHECK_PAIN_DY:
-                if (population[i].pain_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].pain_dy > 0)
-                {
-                    dp = 3;
-                } else if (population[i].pain_dy < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                if(print) printf("\n CHECK_PAIN_DY ");
-                break;
-            case CHECK_FREE_DX:
-                if (population[i].free_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].free_dx > 0)
-                {
-                    dp = 3;
-                } else if (population[i].free_dx < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                if(print) printf("\n CHECK_FREE_DX ");
-                break;
-            case CHECK_FREE_DY:
-                if (population[i].free_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].free_dy > 0)
-                {
-                    dp = 3;
-                } else if (population[i].free_dy < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                if(print) printf("\n CHECK_FREE_DY ");
-                break;
-            case CHECK_FRIEND_DX:
-                if (population[i].friend_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].friend_dx > 0)
-                {
-                    dp = 3;
-                } else if (population[i].friend_dx < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                if(print) printf("\n CHECK_FRIEND_DX ");
-                break;
-            case CHECK_FRIEND_DY:
-                if (population[i].friend_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].friend_dy > 0)
-                {
-                    dp = 3;
-                } else if (population[i].friend_dy < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                if(print) printf("\n CHECK_FRIEND_DY ");
-                break;
-            case CHECK_MAT:
+            case CHECK_MAT: // v
                 if (population[i].material == 0) 
                 {
-                    dp = 5;          // нет материала
-                } else if (population[i].material < population[i].min_mat) 
+                    dp = 4 + population[i].genome[command1];          // нет материала
+                } else if (population[i].material < population[i].volume) 
                 {
-                    dp = 3;          // мало материала
+                    dp = 4 + population[i].genome[command2];         // материала меньше чем объема
                 } else 
                 {
-                    dp = 1;          // достаточно для размножения
+                    dp = 4 + population[i].genome[command3];          // материала больше чем объема
                 }
                 if(print) printf("\n CHECK_MAT ");
                 break;
-            case CHECK_NRG:
+            case CHECK_NRG: // v
                 uint32_t max_energy = population[i].max_energy;
-                if (population[i].energy > max_energy / 3
-                 && population[i].energy < max_energy * 2 / 3) 
+                if (population[i].energy < max_energy / 3)
                 {
-                    dp = 5;          // средняя энергия
-                } else if (population[i].energy <= max_energy / 3) 
+                    dp = 4 + population[i].genome[command1];          // низкая энергия
+                } else if (population[i].energy < max_energy * 2 / 3) 
                 {
-                    dp = 3;          // низкая энергия
+                    dp = 4 + population[i].genome[command2];          // средняя энергия
                 } else 
                 {
-                    dp = 1;          // высокая энергия
+                    dp = 4 + population[i].genome[command3];          // высокая энергия
                 }
                 if(print) printf("\n CHECK_NRG ");
                 break;
-            case CHECK_MULT:
+            case CHECK_MULT: // v
                 if (population[i].multiply == 0) 
                 {
-                    dp = 3;          // не в режиме размножения
+                    dp = 3 + population[i].genome[command1];          // не в режиме размножения
                 } else 
                 {
-                    dp = 1;          // в режиме размножения
+                    dp = 3 + population[i].genome[command2];          // в режиме размножения
                 }
                 if(print) printf("\n CHECK_MULT ");
                 break;
-            case CHECK_VEL:
+            case CHECK_VEL: // v
                 {
-                uint8_t speed = max(abs(population[i].vx), abs(population[i].vy));
+                uint8_t speed = max(abs(population[i].velocity[X_DIRECTION]), abs(population[i].velocity[Y_DIRECTION]));
                 if (speed < 43)
                 {
-                    dp = 1;
+                    dp = 4 + population[i].genome[command1];
                 } else if (speed < 85)
                 {
-                    dp = 3;
+                    dp = 4 + population[i].genome[command2];
                 } else
                 {
-                    dp = 5;
+                    dp = 4 + population[i].genome[command3];
                 }
                 if(print) printf("\n CHECK_VEL ");
                 break;
                 }
-            case CHECK_VOL:
+            case CHECK_VOL: // v
             {
                 uint32_t vol = population[i].volume;
-                if (vol < population[i].min_mat)
+                if (vol == 0)
                 {
-                    dp = 1;
-                } else if (vol < 3 * population[i].min_mat)
+                    dp = 4 + population[i].genome[command1];
+                } else if (vol < population[i].material)
                 {
-                    dp = 3;
+                    dp = 4 + population[i].genome[command2];
                 } else
                 {
-                    dp = 5;
+                    dp = 4 + population[i].genome[command3];
                 }
                 if(print) printf("\n CHECK_VOL ");
                 break;
             }
-            case MULTIPLY:
+            case MULTIPLY: // v
                 multiply = 1;
                 population[i].multiply = 1;
                 if(print) printf("\n MULTIPLY ");
                 break;
-            case SET_STATE_0:
-                population[i].state = 0;
+            case SET_STATE: // v
+                population[i].state = population[i].genome[command1] % STATE_AMOUNT;
+                if(print) printf("\n SET_STATE ");
                 break;
-            case SET_STATE_1:
-                population[i].state = 1;
-                break;
-            case SET_STATE_2:
-                population[i].state = 2;
-                break;
-            case IF_STATE_0:
-                if(population[i].state == 0)
+            case IF_STATE: // v
+                temp_value = population[i].genome[command1] % STATE_AMOUNT;
+                if(population[i].state == temp_value)
                 {
-                    dp = 3;
+                    dp = 4 + population[i].genome[command2];
                 } else 
                 {
-                    dp = 1;
+                    dp = 4 + population[i].genome[command3];
                 }
+                if(print) printf("\n  ");
                 break;
-            case IF_STATE_1:
-                if(population[i].state == 1)
-                {
-                    dp = 3;
-                } else 
-                {
-                    dp = 1;
-                }
+            case SET_MUTATION: // v
+                temp_value = (population[i].genome[command1] - 128) * GENOME_SIZE / 128;
+                population[i].mutate_chance = 
+                min(
+                    max(population[i].mutate_chance + temp_value, 0), max_str
+                );
+                dp = 2;
+                if(print) printf("\n  ");
                 break;
+            case SET_PACIFISM: // v
+                temp_value = (population[i].genome[command1] - 128) * 64 / 128;
+                population[i].pacifism_treshold = 
+                min(
+                    max(population[i].pacifism_treshold + temp_value, 0), max_str
+                );
+                dp = 2;
+                if(print) printf("\n  ");
                 break;
-            case IF_STATE_2:
-                if(population[i].state == 2)
-                {
-                    dp = 3;
-                } else 
-                {
-                    dp = 1;
-                }
+            case STEAL_MAT: // v
                 break;
+                temp_value = population[i].genome[command1] % 2;
+                population[i].steal_mat = temp_value;
+                dp = 2;
+                if(print) printf("\n STEAL_MAT ");
                 break;
-            case MUTATE_POS:
-                population[i].mutate_chance = min(population[i].mutate_chance + 1, GENOME_SIZE);
+            case STEAL_NRG: // v
+                temp_value = population[i].genome[command1] % 2;
+                population[i].steal_nrg = temp_value;
+                dp = 2;
+                if(print) printf("\n STEAL_NRG ");
                 break;
-            case MUTATE_NEG:
-                population[i].mutate_chance = max(population[i].mutate_chance - 1, 1);
+            case GIVE_MAT: // v
                 break;
-            case PACIFISM_POS:
-                population[i].pacifism_treshold = min(population[i].mutate_chance + 1, 64);
+                temp_value = population[i].genome[command1] % 2;
+                population[i].give_mat = temp_value;
+                dp = 2;
+                if(print) printf("\n GIVE_MAT ");
                 break;
-            case PACIFISM_NEG:
-                population[i].pacifism_treshold = max(population[i].mutate_chance - 1, 0);
+            case GIVE_NRG: // v
+                temp_value = population[i].genome[command1] % 2;
+                population[i].give_nrg = temp_value;
+                dp = 2;
+                if(print) printf("\n GIVE_NRG ");
                 break;
-            case TAKE_MAT_ON:
-                population[i].take_mat = 1;
-                break;
-            case TAKE_MAT_OFF:
-                population[i].take_mat = 0;
-                break;
-            case ATTACK_ON:
+            case ATTACK: // v
+                temp_value = population[i].genome[command1] % 2;
+                population[i].attack = temp_value;
+                dp = 2;
                 population[i].attack = 1;
+                if(print) printf("\n ATTACK_ON ");
                 break;
-            case ATTACK_OFF:
-                population[i].attack = 0;
+            case SET_FLAG: // v
+                temp_value = population[i].genome[command1] % FLAG_AMOUNT; // which flag
+                population[i].flag[temp_value] = population[i].genome[command2];
+                if(population[i].energy > 1)
+                    population[i].energy = max(population[i].energy - 1, 0);
+                dp = 3;
+                if(print) printf("\n SET_FLAG ");
                 break;
-            case SET_FLAG_0:
-                population[i].flag_0 = flag_str;
-                population[i].energy = max(population[i].energy - 1, 0);
-                break;
-            case SET_FLAG_1:
-                population[i].flag_1 = flag_str;
-                population[i].energy = max(population[i].energy - 1, 0);
-                break;
-            case SET_FLAG_2:
-                population[i].flag_2 = flag_str;
-                population[i].energy = max(population[i].energy - 1, 0);
-                break;
-            case CHECK_FLAG_0:
-                flag = population[i].is_flag_0;
-                if (flag == 0) 
+            case CHECK_FLAG: // v
+                temp_value = population[i].genome[command1] % FLAG_AMOUNT; // which flag
+                axis = population[i].genome[command2] % 2; // x or y
+                flag = population[i].flag_other[temp_value][axis];
+                if (population[i].flag_other[temp_value][STRENGTH] == 0) 
                 {
-                    dp = 5;
-                } else if (flag <= 3 * flag_str) 
+                    dp = 7 + population[i].genome[command3];
+                } else if (flag < 0)
                 {
-                    dp = 3;
-                } else 
+                    dp = 7 + population[i].genome[command4];
+                } else if (flag == 0)
                 {
-                    dp = 1;
-                }
-                break;
-            case CHECK_FLAG_1:
-                flag = population[i].is_flag_1;
-                if (flag == 0) 
-                {
-                    dp = 5;
-                } else if (flag <= 3 * flag_str)
-                {
-                    dp = 3;
-                } else 
-                {
-                    dp = 1;
-                }
-                break;
-            case CHECK_FLAG_2:
-                flag = population[i].is_flag_2;
-                if (flag == 0) 
-                {
-                    dp = 5;
-                } else if (flag <= 3 * flag_str)
-                {
-                    dp = 3;
-                } else 
-                {
-                    dp = 1;
-                }
-                break;
-            case CHECK_FLAG_0_DX:
-                if (population[i].flag_0_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].flag_0_dx > 0)
-                {
-                    dp = 3;
-                } else if (population[i].flag_0_dx < 0)
-                {
-                    dp = 1;
+                    dp = 7 + population[i].genome[command5];
                 } else
                 {
-                    dp = 5;
+                    dp = 7 + population[i].genome[command6];
                 }
+                if(print) printf("\n CHECK_FLAG ");
                 break;
-            case CHECK_FLAG_0_DY:
-                if (population[i].flag_0_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].flag_0_dy > 0)
-                {
-                    dp = 3;
-                } else if (population[i].flag_0_dy < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                break;
-            case CHECK_FLAG_1_DX:
-                if (population[i].flag_1_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].flag_1_dx > 0)
-                {
-                    dp = 3;
-                } else if (population[i].flag_1_dx < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                break;
-            case CHECK_FLAG_1_DY:
-                if (population[i].flag_1_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].flag_1_dy > 0)
-                {
-                    dp = 3;
-                } else if (population[i].flag_1_dy < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                break;
-            case CHECK_FLAG_2_DX:
-                if (population[i].flag_2_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].flag_2_dx > 0)
-                {
-                    dp = 3;
-                } else if (population[i].flag_2_dx < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                break;
-            case CHECK_FLAG_2_DY:
-                if (population[i].flag_2_str == 0) 
-                {
-                    dp = 5;
-                } else if (population[i].flag_2_dy > 0)
-                {
-                    dp = 3;
-                } else if (population[i].flag_2_dy < 0)
-                {
-                    dp = 1;
-                } else
-                {
-                    dp = 5;
-                }
-                break;
-            case CHECK_SEX:
+            case CHECK_SEX: // v
                 if (population[i].sex == 0) 
                 {
-                    dp = 1;
+                    dp = 3 + population[i].genome[command1];          // самка
                 } else 
                 {
-                    dp = 3;
+                    dp = 3 + population[i].genome[command2];          // самец
                 }
                 if(print) printf("\n CHECK_SEX ");
                 break;
-            case FLIP_SEX:
+            case FLIP_SEX: // v
                 if(population[i].fertilized == 0)
                     population[i].sex = 1 - population[i].sex;
                 if(print) printf("\n FLIP_SEX ");
                 break;
-            case TARGET_HASH_POS:
-                step = max(target_hash_step, 1) * (population[i].pacifism_treshold + 1);
-                population[i].target_hash = min(population[i].target_hash
-                 + step, max_pacifism_threshold);
+            case SET_TARGET_HASH: // v
+                temp_value = (population[i].genome[command1] - 128) * max_pacifism_threshold / 128;
+                population[i].target_hash = 
+                min(
+                    max(population[i].target_hash + temp_value, 0), max_pacifism_threshold
+                );
+                dp = 2;
+                if(print) printf("\n  ");
                 break;
-            case TARGET_HASH_NEG:
-                step = max(target_hash_step, 1) * (population[i].pacifism_treshold + 1);
-                population[i].target_hash = max(population[i].target_hash
-                 - step, 0);
-                break;
-            case TARGET_HASH_RAND:
-                population[i].target_hash = rand() % max_pacifism_threshold;
-                break;
-            case SOLIDIFY:
-                if(population[i].has_reproduced == 0 && population[i].solidify == 0) 
+            case SOLIDIFY: // v
+                temp_value = population[i].genome[command1] % 3;
+                
+                if(population[i].solidify == 1 && temp_value == 0) 
+                {
+                    population[i].solidify = 0;
+                }
+                else if(population[i].solidify == 0 && temp_value == 1) 
                 {
                     population[i].solidify = 1;
-                    population[i].energy = 0;
+                }
+                else if(population[i].has_reproduced == 0 && population[i].solidify != 2 && temp_value == 2) 
+                {
+                    population[i].solidify = 2;
                     solidify_count++;
                 }
+                dp = 2;
+                if(print) printf("\n SOLIDIFY ");
                 break;
-            case PHOTOSYNTHESIS:
+            case PHOTOSYNTHESIS: // v
                 if(population[i].photosynthesis == 1) 
                 {
                     population[i].photosynthesis = 0;
-                    
                 }
+                if(print) printf("\n PHOTOSYNTHESIS ");
                 break;
             
             default:
+                dp = op;
+                if(print) printf("\n JUMP %d ", dp);
                 break;
             }
             }
             population[i].gp = mod(population[i].gp + dp, GENOME_SIZE);
             
-            int8_t vx = population[i].vx;
-            int8_t vy = population[i].vy;
+            int8_t vx = population[i].velocity[X_DIRECTION];
+            int8_t vy = population[i].velocity[Y_DIRECTION];
             uint8_t ax = abs(vx);
             uint8_t ay = abs(vy);
             int8_t sx = sign(vx);
@@ -2543,16 +2386,29 @@ void Organism_Update()
             if(i == test_id && 0)
             {
                 printf("\nvx: %3d vy: %3d str: %4d", vx, vy, population[i].strength);
-            }  
+            } 
+             
             // move = 0;
             // grow = 0;
             // shrink = 0;
             // multiply = 0;
             
+            if(population[i].energy >= population[i].max_energy)
+            {
+                shrink = 0;
+                population[i].shrink = 0;
+                grow = 0;
+                population[i].grow = 0;
+            }
+            // if(population[i].energy == 0)
+            // {
+                
+            // }
+            
             if(population[i].photosynthesis) 
             {
-                move = 0;
-                population[i].move = 0;
+                shrink = 0;
+                population[i].shrink = 0;
             }
             
             // ВЕРОЯТНОСТЬ движения (скорость 127 = 100%, 64 = 50%, 32 = 25%, и т.д.)
@@ -2583,22 +2439,22 @@ void Organism_Update()
                 }
                 else if(move) // если ядро хочет двигаться, но не может, его надо тормозить
                 {
-                    population[i].vx /= 2;
-                    population[i].vy /= 2;
+                    // population[i].velocity[X_DIRECTION] /= 2;
+                    // population[i].velocity[Y_DIRECTION] /= 2;
                     
                     if(Is_Membrane(x, y) == 0)
                     Grid_Signal(population[i].nuc_x, population[i].nuc_y,
-                                -population[i].vx, -population[i].vy,
+                                -vx, -vy,
                                 -min(population[i].strength, max_str) - 1); 
                 }
                 
             }
             
             if (grow && population[i].signal_timer > 0
-             && population[i].material > 0 && population[i].energy > 127) 
+             && population[i].material > 0 && population[i].energy > medium_energy) 
             {
                 Grid_Signal(population[i].nuc_x, population[i].nuc_y,
-                            population[i].vx, population[i].vy,
+                            vx, vy,
                             min(population[i].strength, max_str));
                 population[i].signal_timer--;
                 grid_array[y][x].cooldown = 0;
@@ -2607,7 +2463,7 @@ void Organism_Update()
             if (shrink && population[i].signal_timer > 0) 
             {
                 Grid_Signal(population[i].nuc_x, population[i].nuc_y,
-                                -population[i].vx, -population[i].vy,
+                                -vx, -vy,
                                 -min(population[i].strength, max_str) - 1); 
                 population[i].signal_timer--;
                 grid_array[y][x].cooldown = 0;
@@ -2618,32 +2474,34 @@ void Organism_Update()
             
             
             // if(print)printf("multiply: %d\nsolidify: %d\nfree_str: %d", multiply, population[i].solidify, population[i].free_str);
-            if(multiply && population[i].solidify == 0 && population[i].free_str != 0)
+            if(multiply && population[i].solidify != 2 && population[i].sense_free[STRENGTH] != 0
+            && volumetric_energy_mult * population[i].volume > starting_energy_mult * population[i].starting_energy)
             {
                 // printf("multiply\n");
-                int deltax = population[i].free_dx;
-                int deltay = population[i].free_dy;
+                int deltax = population[i].sense_free[X_DIRECTION];
+                int deltay = population[i].sense_free[Y_DIRECTION];
                 int x = population[i].nuc_x + deltax;
                 int y = population[i].nuc_y + deltay;
                 
                 cell = Grid_Get(x, y);
                 
-                if(cell->id == i)
+                if(cell->id == i && (deltax != 0 || deltay != 0))
                 {
-                    uint32_t half_material = floor(population[i].material / 2);
-                    uint32_t half_energy = floor(population[i].energy / 2);
+                    Grid_Set(x, y, 0);
+                    uint32_t half_material = min(population[i].material, population[i].strength * population[i].material / max_str);
+                    uint32_t half_energy = min(population[i].energy, population[i].strength * volumetric_energy_mult * population[i].volume / max_str);
                     
-                    if(half_material > 0 &&  half_energy > 127)
+                    if(half_material > 0 &&  half_energy > medium_energy)
                     {
-                        population[i].material -= half_material;
-                        population[i].energy -= half_energy;
                         
-                        Grid_Set(x, y, 0);
                         
                         uint16_t child_id = 0;
                         child_id = Organism_Init(x, y, half_material, half_energy);
                         
                         if(child_id != 0) {
+                            population[i].material -= half_material;
+                            population[i].energy -= half_energy;
+                            population[i].starting_energy = population[i].starting_energy - half_energy;
                             Child_Genome_Copy(i, child_id, population[i].mutate_chance);
                             population[i].multiply = 0;
                             // printf("multiply success material: %d\n", population[child_id].material);
@@ -2655,8 +2513,6 @@ void Organism_Update()
                             else
                                 asexual_reproductions++;
                         } else {
-                            population[i].material += half_material;
-                            population[i].energy += half_energy;
                             // printf("multiply fail\n");
                         }
                         multiply = 0;
@@ -2667,69 +2523,54 @@ void Organism_Update()
                 }
             }
                 
-            population[i].target_str = max(population[i].target_str - 1, 0);
-            if(population[i].target_str == 0)
+            population[i].sense_material[STRENGTH] = max(population[i].sense_material[STRENGTH] - 1, 0);
+            if(population[i].sense_material[STRENGTH] == 0)
             {
-                population[i].target_dx = 0;
-                population[i].target_dy = 0;
+                population[i].sense_material[X_DIRECTION] = 0;
+                population[i].sense_material[Y_DIRECTION] = 0;
             }
-            population[i].energy_str = max(population[i].energy_str - 1, 0);
-            if(population[i].energy_str == 0)
+            population[i].sense_energy[STRENGTH] = max(population[i].sense_energy[STRENGTH] - 1, 0);
+            if(population[i].sense_energy[STRENGTH] == 0)
             {
-                population[i].energy_dx = 0;
-                population[i].energy_dy = 0;
+                population[i].sense_energy[X_DIRECTION] = 0;
+                population[i].sense_energy[Y_DIRECTION] = 0;
             }
-            population[i].other_str = max(population[i].other_str - 1, 0);
-            if(population[i].other_str == 0)
+            population[i].sense_other[STRENGTH] = max(population[i].sense_other[STRENGTH] - 1, 0);
+            if(population[i].sense_other[STRENGTH] == 0)
             {
-                population[i].other_dx = 0;
-                population[i].other_dy = 0;
+                population[i].sense_other[X_DIRECTION] = 0;
+                population[i].sense_other[Y_DIRECTION] = 0;
             }
-            population[i].pain_str = max(population[i].pain_str - 1, 0);
-            if(population[i].pain_str == 0)
+            population[i].sense_pain[STRENGTH] = max(population[i].sense_pain[STRENGTH] - 1, 0);
+            if(population[i].sense_pain[STRENGTH] == 0)
             {
-                population[i].pain_dx = 0;
-                population[i].pain_dy = 0;
+                population[i].sense_pain[X_DIRECTION] = 0;
+                population[i].sense_pain[Y_DIRECTION] = 0;
             }
-            population[i].free_str = max(population[i].free_str - 1, 0);
-            population[i].free_dist = min(population[i].free_dist + 1, 65535);
-            if(population[i].free_str == 0)
+            population[i].sense_free[STRENGTH] = max(population[i].sense_free[STRENGTH] - 1, 0);
+            population[i].sense_free[DISTANCE] = min(population[i].sense_free[DISTANCE] + 1, 65535);
+            if(population[i].sense_free[STRENGTH] == 0)
             {
-                population[i].free_dx = 0;
-                population[i].free_dy = 0;
+                population[i].sense_free[X_DIRECTION] = 0;
+                population[i].sense_free[Y_DIRECTION] = 0;
             }
-            population[i].friend_str = max(population[i].friend_str - 1, 0);
-            if(population[i].friend_str == 0)
+            population[i].sense_friend[STRENGTH] = max(population[i].sense_friend[STRENGTH] - 1, 0);
+            if(population[i].sense_friend[STRENGTH] == 0)
             {
-                population[i].friend_dx = 0;
-                population[i].friend_dy = 0;
+                population[i].sense_friend[X_DIRECTION] = 0;
+                population[i].sense_friend[Y_DIRECTION] = 0;
             }
             
-            population[i].is_flag_0 = max(population[i].is_flag_0 - 3, 0);
-            population[i].is_flag_1 = max(population[i].is_flag_1 - 3, 0);
-            population[i].is_flag_2 = max(population[i].is_flag_2 - 3, 0);
-            
-            population[i].flag_0 = max(population[i].flag_0 - 1, 0);
-            population[i].flag_1 = max(population[i].flag_1 - 1, 0);
-            population[i].flag_2 = max(population[i].flag_2 - 1, 0);
-            
-            population[i].flag_0_str = max(population[i].flag_0 - 1, 0);
-            if(population[i].flag_0_str == 0)
+            for(int f = 0; f < FLAG_AMOUNT; f++)
             {
-                population[i].flag_0_dx = 0;
-                population[i].flag_0_dy = 0;
-            }
-            population[i].flag_1_str = max(population[i].flag_1 - 1, 0);
-            if(population[i].flag_1_str == 0)
-            {
-                population[i].flag_1_dx = 0;
-                population[i].flag_1_dy = 0;
-            }
-            population[i].flag_2_str = max(population[i].flag_2 - 1, 0);
-            if(population[i].flag_2_str == 0)
-            {
-                population[i].flag_2_dx = 0;
-                population[i].flag_2_dy = 0;
+                population[i].flag_other[f][STRENGTH] = max(population[i].flag_other[f][STRENGTH] - 3, 0);
+                population[i].flag[f] = max(population[i].flag[f] - 1, 0);
+                
+                if(population[i].flag_other[f][STRENGTH] == 0)
+                {
+                    population[i].flag_other[f][X_DIRECTION] = 0;
+                    population[i].flag_other[f][Y_DIRECTION] = 0;
+                }
             }
             
             // if(multiply
@@ -2753,19 +2594,19 @@ void Organism_Update()
             
             // АВТОМАТИЧЕСКАЯ ВОЛНА ЖИЗНИ (каждые N шагов)
             population[i].life_wave_timer++;
-            if(population[i].life_wave_timer >= 94)
+            if(population[i].life_wave_timer >= 47)
             {
                 // printf("life wave\n");
                 population[i].life_wave_timer = 0;
                 
-                cell->life_wave_str = max(
-                population[i].max_x - population[i].min_x + 
-                population[i].max_y - population[i].min_y, 1);
+                cell->life_wave_str = population[i].perimeter;
             }
+            
+            // population[i].solidify = 1;
         }
     }
     
-    if(free_top >= MAX_ORGANISMS - 2) 
+    if(free_top >= MAX_ORGANISMS - 2)//MAX_ORGANISMS / re_frac) 
     {
         char buf[128];
         snprintf(buf, sizeof(buf), "screenshots/material_steps:%d.png", step_counter);
@@ -2833,41 +2674,12 @@ void Repopulate()
     if(debug) fprintf(stderr, "\nRepopulate"), fflush(stderr);
     if(repopulate == 0) return;
     step_counter = 0;
-    Best_Genome_Spread();
     
-    for(int i = 0; i < MAX_ORGANISMS; i++)
-    {
-        Organism_Quit(i);
-    }
+    Best_Genome_Spread();
     
     Grid_Reset(0);
     
-    total_mat = 0;
-    uint32_t org_mat = 0, grid_mat = 0, vol_mat = 0;
-    for(int i = 0; i < grid_height; i++)
-    {
-        for(int j = 0; j < grid_width; j++)
-        {
-            grid_mat += grid_array[i][j].material;
-        }
-    }
-    
-    for(int i = 1; i < MAX_ORGANISMS; i++)
-    {
-        if(population[i].alive)
-        {
-            org_mat += population[i].material;
-            vol_mat += population[i].volume;
-        }
-    }
-    total_mat = org_mat + grid_mat;
-    
-    // printf("repop vol_mat: %5d org_mat: %5d grid_mat: %5d total_mat: %5d\n", vol_mat, org_mat, grid_mat, total_mat);
-    
-    if(total_mat % min_mat)
-    {
-        printf("%d", 1 / 0);
-    }  
+    Check_Conservation();
     
     uint16_t x, y;
 
@@ -2887,18 +2699,28 @@ void Repopulate()
         // x = (rand() % grid_width + rand() % grid_width) / 2;
         // y = (rand() % grid_height + rand() % grid_height) / 2;
         x = rand() % grid_width;
-        y = grid_height * 2 / 3 + rand() % (grid_height / 3);
+        y = rand() % grid_height;
         if(Grid_Get(x, y)->id == 0)
             Organism_Init(x, y, min_mat, starting_energy);
     }
+    
+    // uint16_t side = fast_root(STARTING_ORGANISMS);
+    
+    // for(int i = 0; i < side; i++)
+    // {
+    //     for(int j = 0; j < side; j++)
+    //     {
+    //         Organism_Init(4 * j, 4 * i, min_mat, starting_energy);
+    //     }
+    // }
 }
 
 void Order_Shuffle()
 {
     if(debug) fprintf(stderr, "\nOrder_Shuffle"), fflush(stderr);
-    for (int i = MAX_ORGANISMS - 1; i > 0; i--) 
+    for (uint16_t i = MAX_ORGANISMS - 1; i > 0; i--) 
     {
-        int j = rand() % (i + 1);
+        uint16_t j = 1 + rand() % i;
         
         uint16_t temp = order[i];
         order[i] = order[j];
@@ -2948,7 +2770,7 @@ void Stats_CollectAndPrint()
         if (org->volume > pop_stats.max_volume) pop_stats.max_volume = org->volume;
         if (org->material > pop_stats.max_material) pop_stats.max_material = org->material;
         
-        if (org->take_mat) eco_stats.parasite_count++;
+        if (org->steal_mat || org->steal_nrg) eco_stats.parasite_count++;
         if (org->attack) eco_stats.predator_count++;
         
         if (org->photosynthesis) eco_stats.phototroph_count++;
@@ -3010,11 +2832,6 @@ void Stats_CollectAndPrint()
             if (cell->solid) {
                 eco_stats.total_walls++;
             }
-            
-            eco_stats.total_flags += cell->flag_0 + cell->flag_1 + cell->flag_2;
-            eco_stats.flag_0_total += cell->flag_0;
-            eco_stats.flag_1_total += cell->flag_1;
-            eco_stats.flag_2_total += cell->flag_2;
         }
     }
     
@@ -3027,16 +2844,15 @@ void Stats_CollectAndPrint()
     printf("SIZE: avg_vol %u max_vol %u avg_mat %u max_mat %u avg_neighbors %u\n",
            pop_stats.avg_volume, pop_stats.max_volume, pop_stats.avg_material, 
            pop_stats.max_material, pop_stats.avg_neighbors);
-    printf("BEHAVIOR: parasites %u predators %u builders %u phototrophs %u heterotrophs u\n",
+    printf("BEHAVIOR: parasites %u predators %u builders %u phototrophs %u heterotrophs %u\n",
            eco_stats.parasite_count, eco_stats.predator_count, eco_stats.builder_count, eco_stats.phototroph_count, eco_stats.heterotroph_count);
     printf("SOCIAL: egoist %u low %u medium %u high %u\n",
            social_egoist, social_low, social_medium, social_high);
     printf("SIZE DIST: tiny %u small %u medium %u large %u giant %u\n",
            eco_stats.tiny_organisms, eco_stats.small_organisms, eco_stats.medium_organisms,
            eco_stats.large_organisms, eco_stats.giant_organisms);
-    printf("RESOURCES: food %u energy %u walls %u flags %u (R %u G %u B %u)\n",
-           eco_stats.total_free_food, eco_stats.total_free_energy, eco_stats.total_walls, eco_stats.total_flags,
-           eco_stats.flag_0_total, eco_stats.flag_1_total, eco_stats.flag_2_total);
+    printf("RESOURCES: food %u energy %u walls %u\n",
+           eco_stats.total_free_food, eco_stats.total_free_energy, eco_stats.total_walls);
            
     // ========== ГИСТОГРАММЫ ==========
     #define BAR_WIDTH 64
@@ -3143,20 +2959,19 @@ void Stats_CollectAndPrint()
     
     // 5. Resources (food, walls, flags)
     printf("\n RESOURCES HISTOGRAM\n");
-    uint32_t resource_values[4] = {
+    uint32_t resource_values[3] = {
         eco_stats.total_free_food,
         eco_stats.total_free_energy,
-        eco_stats.total_walls,
-        eco_stats.total_flags
+        eco_stats.total_walls
     };
-    const char* resource_labels[4] = {"Food", "Energy", "Walls", "Flags"};
+    const char* resource_labels[3] = {"Food", "Energy", "Walls"};
     
     uint32_t resource_max = 1;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         if (resource_values[i] > resource_max) resource_max = resource_values[i];
     }
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         int bar_len = (resource_max > 0) ? (resource_values[i] * BAR_WIDTH / resource_max) : 0;
         printf("%-14s: %8u [", resource_labels[i], resource_values[i]);
         for (int j = 0; j < bar_len; j++) printf("|");

@@ -4,8 +4,11 @@
 #include "utility.h"
 
 #define MAX_ORGANISMS 60000
-#define STARTING_ORGANISMS 5000
+#define STARTING_ORGANISMS 30000
 #define GENOME_SIZE 256
+
+#define STATE_AMOUNT 8
+#define FLAG_AMOUNT 8
 
 typedef struct {
     uint16_t id;
@@ -16,10 +19,9 @@ typedef struct {
     uint32_t material;
     uint32_t energy; 
     uint16_t life_wave_str;
-    uint8_t flag_0;
-    uint8_t flag_1;
-    uint8_t flag_2;
+    uint8_t flag[FLAG_AMOUNT];
     uint8_t solid;
+    uint8_t membrane;
     
     uint8_t  cooldown;
 } Cell;
@@ -30,57 +32,36 @@ typedef struct {
     uint32_t material;
     uint16_t min_mat;
     uint32_t volume;
+    uint32_t perimeter;
     uint8_t target_vol;
     uint8_t alive;
     uint8_t multiply;
     uint32_t energy;
+    uint32_t starting_energy;
     uint32_t max_energy;
     
-    int16_t target_dx;
-    int16_t target_dy;
-    uint16_t target_str;
-    int16_t energy_dx;
-    int16_t energy_dy;
-    uint16_t energy_str;
-    int16_t other_dx;
-    int16_t other_dy;
-    uint16_t other_str;
-    int16_t pain_dx;
-    int16_t pain_dy;
-    uint16_t pain_str;
-    int16_t free_dx;
-    int16_t free_dy;
-    uint16_t free_dist;
-    uint16_t free_str;
-    int16_t friend_dx;
-    int16_t friend_dy;
-    uint16_t friend_str;
-    int16_t flag_0_dx;
-    int16_t flag_0_dy;
-    uint16_t flag_0_str;
-    int16_t flag_1_dx;
-    int16_t flag_1_dy;
-    uint16_t flag_1_str;
-    int16_t flag_2_dx;
-    int16_t flag_2_dy;
-    uint16_t flag_2_str;
+    int16_t sense_material[3];
+    int16_t sense_energy[3];
+    int16_t sense_other[3];
+    int16_t sense_wall[3];
+    int16_t sense_pain[3];
+    int16_t sense_free[4];
+    int16_t sense_friend[3];
+    
+    int16_t flag_other[FLAG_AMOUNT][3];
     
     uint8_t strength;
     uint8_t state;
-    int8_t vx;
-    int8_t vy;
+    int8_t velocity[2];
     uint8_t move;
-    uint8_t take_mat;
+    uint8_t steal_mat;
+    uint8_t steal_nrg;
+    uint8_t give_mat;
+    uint8_t give_nrg;
     uint8_t attack;
     uint8_t photosynthesis;
     
-    uint8_t flag_0;
-    uint8_t flag_1;
-    uint8_t flag_2;
-    
-    uint16_t is_flag_0;
-    uint16_t is_flag_1;
-    uint16_t is_flag_2;
+    uint8_t flag[FLAG_AMOUNT];
     
     uint8_t genome[GENOME_SIZE];
     uint8_t gp;
@@ -135,12 +116,6 @@ typedef struct {
     uint32_t total_free_food;        // всего еды на поле
     uint32_t total_free_energy;      // всего еды на поле
     uint32_t total_walls;            // всего клеток стен
-    uint32_t total_flags;            // всего флагов (сумма flag_0/1/2)
-    
-    // Информация
-    uint32_t flag_0_total;           // сумма flag_0
-    uint32_t flag_1_total;
-    uint32_t flag_2_total;
     
     // Размеры
     uint32_t tiny_organisms;         // volume < 10
@@ -163,71 +138,47 @@ extern Cell **grid_array;
 
 typedef enum
 {
-    VX_POS,
-    VX_NEG,
-    VY_POS,
-    VY_NEG,
+    X_DIRECTION,
+    Y_DIRECTION,
+    STRENGTH,
+    DISTANCE
+} indeces;
+
+typedef enum
+{
+    SET_VEL,
     ACCEL,
     STOP,
     GROW,
     SHRINK,
-    STR_POS,
-    STR_NEG,
-    STR_ONE,
-    STR_MAX,
-    GOTO_ZONE_0,
-    GOTO_ZONE_1,
-    GOTO_ZONE_2,
-    SKIP,
-    CHECK_OTHER_DX,
-    CHECK_OTHER_DY,
-    CHECK_TARGET_DX,
-    CHECK_TARGET_DY,
-    CHECK_ENERGY_DX,
-    CHECK_ENERGY_DY,
-    CHECK_PAIN_DX,
-    CHECK_PAIN_DY,
-    CHECK_FREE_DX,
-    CHECK_FREE_DY,
-    CHECK_FRIEND_DX,
-    CHECK_FRIEND_DY,
+    SET_STR,
+    CHECK_OTHER,
+    CHECK_WALL,
+    CHECK_TARGET,
+    CHECK_ENERGY,
+    CHECK_PAIN,
+    CHECK_FREE,
+    CHECK_FRIEND,
     CHECK_MAT,
     CHECK_NRG,
     CHECK_MULT,
     CHECK_VEL,
     CHECK_VOL,
     MULTIPLY,
-    SET_STATE_0,
-    SET_STATE_1,
-    SET_STATE_2,
-    IF_STATE_0,
-    IF_STATE_1,
-    IF_STATE_2,
-    MUTATE_POS,
-    MUTATE_NEG,
-    PACIFISM_POS,
-    PACIFISM_NEG,
-    TAKE_MAT_ON,
-    TAKE_MAT_OFF,
-    ATTACK_ON,
-    ATTACK_OFF,
-    SET_FLAG_0,
-    SET_FLAG_1,
-    SET_FLAG_2,
-    CHECK_FLAG_0,
-    CHECK_FLAG_1,
-    CHECK_FLAG_2,
-    CHECK_FLAG_0_DX,
-    CHECK_FLAG_0_DY,
-    CHECK_FLAG_1_DX,
-    CHECK_FLAG_1_DY,
-    CHECK_FLAG_2_DX,
-    CHECK_FLAG_2_DY,
+    SET_STATE,
+    IF_STATE,
+    SET_MUTATION,
+    SET_PACIFISM,
+    STEAL_MAT,
+    STEAL_NRG,
+    GIVE_MAT,
+    GIVE_NRG,
+    ATTACK,
+    SET_FLAG,
+    CHECK_FLAG,
     CHECK_SEX,
     FLIP_SEX,
-    TARGET_HASH_POS,
-    TARGET_HASH_NEG,
-    TARGET_HASH_RAND,
+    SET_TARGET_HASH,
     SOLIDIFY,
     PHOTOSYNTHESIS,
     OP_COUNT

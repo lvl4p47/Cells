@@ -45,7 +45,7 @@ void Screen_Clear()
 void Screen_Draw()
 {
     Grid_Draw();
-    Organism_Draw();
+    // Organism_Draw();
     SDL_RenderPresent(renderer);
 }
 
@@ -82,21 +82,21 @@ void Grid_Draw()
                             int value = population[id].genome_hash / 500;
                             int energy = Grid_Get(j, i)->energy;
                             int life_wave_str = Grid_Get(j, i)->energy;
-                            int flag_0 = population[id].flag_0 * 8;
-                            int flag_1 = population[id].flag_1 * 8;
-                            int flag_2 = population[id].flag_2 * 8; 
+                            int flag_0 = population[id].flag[0] * 8;
+                            int flag_1 = population[id].flag[1] * 8;
+                            int flag_2 = population[id].flag[2] * 8; 
                             // r = 0;
                             // g = (255 - value) * energy / 255;
                             // b = value * energy / 255;
-                            // r = 127 + flag_0;
-                            // g = 127 + flag_1;
-                            // b = 127 + flag_2;
-                            if(energy != 255)
-                            {
-                                r = energy;
-                                g = 0;
-                                b = 255 - energy;
-                            }
+                            r = id % 256;
+                            g = (id % 2) * 255;
+                            b = id / 256;
+                            // if(energy != 255)
+                            // {
+                            //     r = energy;
+                            //     g = 0;
+                            //     b = 255 - energy;
+                            // }
                     
                             rect.x = mod(j, grid_width) * CELL_SIZE;
                             rect.y = mod(i, grid_height) * CELL_SIZE;
@@ -117,9 +117,9 @@ void Grid_Draw()
             for(int j = 0; j < grid_width; j++)
             {
                 int id = Grid_Get(j, i)->id;
-                int flag_0 = Grid_Get(j, i)->flag_0;
-                int flag_1 = Grid_Get(j, i)->flag_1;
-                int flag_2 = Grid_Get(j, i)->flag_2;
+                int flag_0 = Grid_Get(j, i)->flag[0];
+                int flag_1 = Grid_Get(j, i)->flag[1];
+                int flag_2 = Grid_Get(j, i)->flag[2];
                 int solid = Grid_Get(j, i)->solid;
                 if(id != 0)
                 {
@@ -144,18 +144,12 @@ void Grid_Draw()
                     {
                         int value = Grid_Get(j, i)->cooldown;
                         int energy = Grid_Get(j, i)->energy;
-                        int flag_0 = population[id].flag_0 * 8;
-                        int flag_1 = population[id].flag_1 * 8;
-                        int flag_2 = population[id].flag_2 * 8; 
+                        int flag_0 = population[id].flag[0] * 8;
+                        int flag_1 = population[id].flag[1] * 8;
+                        int flag_2 = population[id].flag[2] * 8; 
                         r = 0;
-                        g = 0;
+                        g = 255;
                         b = 0;
-                        if(energy != 255)
-                        {
-                            r = energy;
-                            g = 127;
-                            b = 255 - energy;
-                        }
                         // r = population[id].attack * 255;
                         // g = population[id].fertilized * 255;
                         // b = population[id].has_reproduced * 255;
@@ -242,9 +236,9 @@ void Save_Screenshot(const char* filename, int mode)
                 
                 case SCREENSHOT_FLAGS:
                 {
-                    int flag_0 = cell->flag_0;
-                    int flag_1 = cell->flag_1;
-                    int flag_2 = cell->flag_2;
+                    int flag_0 = cell->flag[0];
+                    int flag_1 = cell->flag[1];
+                    int flag_2 = cell->flag[2];
                     
                     color = SDL_MapRGB(surface->format, flag_0, flag_1, flag_2);
                     break;

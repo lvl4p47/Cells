@@ -13,7 +13,7 @@
 
 // #define WINDOW_WIDTH 960 // for debugging
 // #define WINDOW_HEIGHT 540
-// #define CELL_SIZE 10
+// #define CELL_SIZE 2
 
 extern SDL_Window* window;
 extern SDL_Renderer* renderer;
